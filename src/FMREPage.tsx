@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
-import { Alert, Tag, Steps } from 'antd'
+import { Alert, Tag, Steps, Input, Button, Form, Divider } from 'antd'
 import {
   MenuOutlined, CloseOutlined, GlobalOutlined,
   WarningOutlined, MailOutlined, PhoneOutlined,
   CheckCircleOutlined, FileTextOutlined, AudioOutlined,
-  SoundOutlined, TeamOutlined,
+  SoundOutlined, TeamOutlined, UserOutlined, LockOutlined,
+  LoginOutlined,
 } from '@ant-design/icons'
 
 // URL del sistema EQMS — vacío = mismo servidor, URL completa = servidor externo
@@ -76,6 +77,9 @@ export default function FMREPage() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [activeSection, setActiveSection] = useState('historia')
   const [navSticky, setNavSticky] = useState(false)
+  const [loginLoading, setLoginLoading] = useState(false)
+  const [loginError, setLoginError] = useState<string | null>(null)
+  const [loginForm] = Form.useForm()
 
   useEffect(() => {
     const onScroll = () => {
@@ -96,6 +100,31 @@ export default function FMREPage() {
   const scrollTo = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     setMenuOpen(false)
+  }
+
+  const handleLogin = async (values: { username: string; password: string }) => {
+    setLoginLoading(true)
+    setLoginError(null)
+    try {
+      const res = await fetch(`${EQMS_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: values.username, password: values.password }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setLoginError(data?.detail ?? 'Usuario o contraseña incorrectos')
+        return
+      }
+      const data = await res.json()
+      localStorage.setItem('access_token', data.access_token)
+      localStorage.setItem('refresh_token', data.refresh_token)
+      window.location.href = `${EQMS_URL}/estadisticas/reportes`
+    } catch {
+      setLoginError('No se pudo conectar con el portal. Intenta más tarde.')
+    } finally {
+      setLoginLoading(false)
+    }
   }
 
   return (
@@ -147,8 +176,8 @@ export default function FMREPage() {
         <div style={{ position: 'absolute', left: 24, bottom: 24, opacity: 0.05, fontSize: 180, fontWeight: 900, color: 'white', lineHeight: 1, letterSpacing: -8 }}>XE</div>
 
         {/* Top bar */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '20px 32px 0' }}>
-          <button onClick={() => setMenuOpen(!menuOpen)}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '20px 32px 0', position: 'relative', zIndex: 200 }}>
+          <button onClick={() => { setMenuOpen(!menuOpen); setLoginError(null) }}
             style={{ background: 'none', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 6,
               color: 'white', padding: '6px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
             {menuOpen ? <CloseOutlined /> : <MenuOutlined />}
@@ -210,19 +239,92 @@ export default function FMREPage() {
         boxShadow: navSticky ? '0 2px 12px rgba(0,0,0,0.25)' : '0 2px 8px rgba(0,0,0,0.08)',
         transition: 'all 0.2s',
       }}>
-        {/* Menú mobile */}
+        {/* Panel lateral — overlay oscuro */}
         {menuOpen && (
-          <div style={{ padding: '8px 16px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+          <div onClick={() => setMenuOpen(false)}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 300 }} />
+        )}
+
+        {/* Panel lateral — drawer */}
+        <div style={{
+          position: 'fixed', top: 0, right: 0, height: '100vh', width: 320,
+          background: 'white', zIndex: 400, boxShadow: '-4px 0 24px rgba(0,0,0,0.2)',
+          transform: menuOpen ? 'translateX(0)' : 'translateX(100%)',
+          transition: 'transform 0.3s ease', display: 'flex', flexDirection: 'column',
+          overflowY: 'auto',
+        }}>
+          {/* Cabecera del panel */}
+          <div style={{ background: FMRE_DARK, padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <img src="/fmre.webp" alt="FMRE" style={{ height: 36 }} />
+              <span style={{ color: 'white', fontWeight: 700, fontSize: 13, lineHeight: 1.3 }}>
+                FMRE<br /><span style={{ color: '#8ab4e0', fontWeight: 400, fontSize: 11 }}>Portal de miembros</span>
+              </span>
+            </div>
+            <button onClick={() => setMenuOpen(false)}
+              style={{ background: 'none', border: 'none', color: 'white', fontSize: 18, cursor: 'pointer', padding: 4 }}>
+              <CloseOutlined />
+            </button>
+          </div>
+
+          {/* Navegación */}
+          <div style={{ padding: '16px 0' }}>
             {NAV.map(n => (
               <button key={n.id} onClick={() => scrollTo(n.id)}
                 style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none',
-                  padding: '10px 8px', color: navSticky ? 'white' : FMRE_DARK, fontWeight: 600,
-                  fontSize: 15, cursor: 'pointer', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
+                  padding: '12px 24px', color: FMRE_DARK, fontWeight: 600, fontSize: 15,
+                  cursor: 'pointer', borderBottom: '1px solid #f0f0f0',
+                  transition: 'background 0.15s' }}
+                onMouseEnter={e => (e.currentTarget.style.background = '#f5f7fa')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
                 {n.label}
               </button>
             ))}
           </div>
-        )}
+
+          {/* Login */}
+          <div style={{ padding: '20px 24px', flex: 1 }}>
+            <Divider style={{ margin: '0 0 20px' }}>
+              <span style={{ color: '#888', fontSize: 12, fontWeight: 600 }}>ACCESO AL PORTAL</span>
+            </Divider>
+            <p style={{ color: '#666', fontSize: 13, margin: '0 0 16px', lineHeight: 1.6 }}>
+              Inicia sesión para acceder al sistema de reportes y estadísticas de la FMRE.
+            </p>
+            {loginError && (
+              <Alert type="error" message={loginError} showIcon style={{ marginBottom: 14, fontSize: 13 }} closable onClose={() => setLoginError(null)} />
+            )}
+            <Form form={loginForm} layout="vertical" onFinish={handleLogin} size="middle">
+              <Form.Item name="username" rules={[{ required: true, message: 'Ingresa tu usuario' }]} style={{ marginBottom: 12 }}>
+                <Input prefix={<UserOutlined style={{ color: '#bbb' }} />} placeholder="Indicativo / Usuario" />
+              </Form.Item>
+              <Form.Item name="password" rules={[{ required: true, message: 'Ingresa tu contraseña' }]} style={{ marginBottom: 16 }}>
+                <Input.Password prefix={<LockOutlined style={{ color: '#bbb' }} />} placeholder="Contraseña" />
+              </Form.Item>
+              <Button type="primary" htmlType="submit" block loading={loginLoading}
+                icon={<LoginOutlined />}
+                style={{ background: FMRE_BLUE, borderColor: FMRE_BLUE, height: 40, fontWeight: 700 }}>
+                Ingresar al Portal
+              </Button>
+            </Form>
+            <div style={{ textAlign: 'center', marginTop: 14 }}>
+              <a href={`${EQMS_URL}/login`} target="_blank" rel="noopener noreferrer"
+                style={{ color: FMRE_BLUE, fontSize: 12 }}>
+                ¿Olvidaste tu contraseña?
+              </a>
+            </div>
+          </div>
+
+          {/* Footer del panel */}
+          <div style={{ padding: '16px 24px', borderTop: '1px solid #f0f0f0', background: '#fafafa' }}>
+            <p style={{ margin: 0, color: '#aaa', fontSize: 11, textAlign: 'center' }}>
+              ¿No tienes cuenta?{' '}
+              <button onClick={() => scrollTo('afiliacion')}
+                style={{ background: 'none', border: 'none', color: FMRE_BLUE, cursor: 'pointer', fontWeight: 600, fontSize: 11, padding: 0 }}>
+                Afíliate a la FMRE
+              </button>
+            </p>
+          </div>
+        </div>
         {/* Desktop nav */}
         <div style={{ display: 'flex', justifyContent: 'center', gap: 4, padding: '0 16px', overflowX: 'auto' }}>
           {NAV.map(n => (
