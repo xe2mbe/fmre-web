@@ -686,20 +686,19 @@ export default function FMREPage() {
           </div>
 
           <div style={{ textAlign: 'center', padding: '8px 0' }}>
-            <a href={`${EQMS_URL}/login`} style={{ textDecoration: 'none' }}>
-              <button style={{
-                background: `linear-gradient(135deg, ${FMRE_BLUE}, #2563a8)`,
-                color: 'white', border: 'none', borderRadius: 10,
-                padding: '14px 36px', fontSize: 16, fontWeight: 700,
-                cursor: 'pointer', boxShadow: '0 4px 16px rgba(26,86,158,0.35)',
-                letterSpacing: 0.5,
-              }}>
-                Regístrate en el Portal para Afiliarte
-              </button>
-            </a>
+            <button onClick={() => setShowRegistro(true)} style={{
+              background: `linear-gradient(135deg, ${FMRE_BLUE}, #2563a8)`,
+              color: 'white', border: 'none', borderRadius: 10,
+              padding: '14px 36px', fontSize: 16, fontWeight: 700,
+              cursor: 'pointer', boxShadow: '0 4px 16px rgba(26,86,158,0.35)',
+              letterSpacing: 0.5,
+            }}>
+              Iniciar Pre-registro de Membresía
+            </button>
             <p style={{ color: '#888', fontSize: 13, marginTop: 12 }}>
               ¿Ya tienes cuenta?{' '}
-              <a href={`${EQMS_URL}/login`} style={{ color: FMRE_BLUE, fontWeight: 600 }}>Inicia sesión aquí</a>
+              <a href={`${EQMS_URL}/login`} target="_blank" rel="noopener noreferrer"
+                style={{ color: FMRE_BLUE, fontWeight: 600 }}>Inicia sesión aquí</a>
             </p>
           </div>
         </section>
