@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
+const RegistroPage = lazy(() => import('./RegistroPage'))
 import { Alert, Tag, Steps, Input, Button, Form, Divider } from 'antd'
 import {
   MenuOutlined, CloseOutlined, GlobalOutlined,
@@ -77,6 +78,7 @@ export default function FMREPage() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [activeSection, setActiveSection] = useState('historia')
   const [navSticky, setNavSticky] = useState(false)
+  const [showRegistro, setShowRegistro] = useState(false)
   const [loginLoading, setLoginLoading] = useState(false)
   const [loginError, setLoginError] = useState<string | null>(null)
   const [loginForm] = Form.useForm()
@@ -129,6 +131,15 @@ export default function FMREPage() {
 
   return (
     <div style={{ fontFamily: "'Segoe UI', system-ui, sans-serif", background: '#f7f8fa', minHeight: '100vh' }}>
+
+      {/* Formulario de registro — overlay full screen */}
+      {showRegistro && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, overflowY: 'auto', background: '#f7f8fa' }}>
+          <Suspense fallback={<div style={{ padding: 40, textAlign: 'center', color: '#666' }}>Cargando...</div>}>
+            <RegistroPage onClose={() => setShowRegistro(false)} />
+          </Suspense>
+        </div>
+      )}
 
       {/* ── HERO ─────────────────────────────────────────────────────────── */}
       <header style={{
@@ -203,7 +214,7 @@ export default function FMREPage() {
             Representamos, promovemos y defendemos el espectro radioeléctrico para las generaciones presentes y futuras.
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button onClick={() => scrollTo('afiliacion')}
+            <button onClick={() => setShowRegistro(true)}
               style={{ background: FMRE_GOLD, color: FMRE_DARK, border: 'none', borderRadius: 8,
                 padding: '12px 28px', fontWeight: 700, fontSize: 15, cursor: 'pointer', letterSpacing: 0.5 }}>
               Afíliate a la FMRE
@@ -318,7 +329,7 @@ export default function FMREPage() {
           <div style={{ padding: '16px 24px', borderTop: '1px solid #f0f0f0', background: '#fafafa' }}>
             <p style={{ margin: 0, color: '#aaa', fontSize: 11, textAlign: 'center' }}>
               ¿No tienes cuenta?{' '}
-              <button onClick={() => scrollTo('afiliacion')}
+              <button onClick={() => { setMenuOpen(false); setShowRegistro(true) }}
                 style={{ background: 'none', border: 'none', color: FMRE_BLUE, cursor: 'pointer', fontWeight: 600, fontSize: 11, padding: 0 }}>
                 Afíliate a la FMRE
               </button>
