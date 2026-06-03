@@ -17,15 +17,30 @@ db.pragma('foreign_keys = ON')
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS plantillas (
-    id             INTEGER PRIMARY KEY AUTOINCREMENT,
-    nombre         TEXT    NOT NULL,
-    descripcion    TEXT    NOT NULL DEFAULT '',
-    fuente_titulo  TEXT    NOT NULL DEFAULT 'Arial, sans-serif',
-    tamano_titulo  TEXT    NOT NULL DEFAULT '16',
-    fuente_cuerpo  TEXT    NOT NULL DEFAULT 'Arial, sans-serif',
-    tamano_cuerpo  TEXT    NOT NULL DEFAULT '12',
-    created_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at     DATETIME DEFAULT CURRENT_TIMESTAMP
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre           TEXT    NOT NULL,
+    descripcion      TEXT    NOT NULL DEFAULT '',
+    -- Tipografía
+    fuente_titulo    TEXT    NOT NULL DEFAULT 'Arial, sans-serif',
+    tamano_titulo    TEXT    NOT NULL DEFAULT '16',
+    fuente_cuerpo    TEXT    NOT NULL DEFAULT 'Arial, sans-serif',
+    tamano_cuerpo    TEXT    NOT NULL DEFAULT '12',
+    -- Encabezado
+    enc_contenido    TEXT    NOT NULL DEFAULT '',
+    enc_fuente       TEXT    NOT NULL DEFAULT 'Arial, sans-serif',
+    enc_tamano       TEXT    NOT NULL DEFAULT '10',
+    enc_paginas      TEXT    NOT NULL DEFAULT 'todas',
+    -- Pie de página
+    pie_contenido    TEXT    NOT NULL DEFAULT '',
+    pie_fuente       TEXT    NOT NULL DEFAULT 'Arial, sans-serif',
+    pie_tamano       TEXT    NOT NULL DEFAULT '10',
+    pie_paginas      TEXT    NOT NULL DEFAULT 'todas',
+    -- Número de página
+    num_pagina       INTEGER NOT NULL DEFAULT 0,
+    num_pagina_pos   TEXT    NOT NULL DEFAULT 'centro',
+    num_pagina_fmt   TEXT    NOT NULL DEFAULT 'X',
+    created_at       DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at       DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
   CREATE TABLE IF NOT EXISTS secciones_plantilla (
@@ -44,11 +59,23 @@ db.exec(`
   );
 `)
 
-// Migración: agregar columnas nuevas a plantillas si la tabla ya existía
-;['fuente_titulo TEXT NOT NULL DEFAULT \'Arial, sans-serif\'',
-  'tamano_titulo TEXT NOT NULL DEFAULT \'16\'',
-  'fuente_cuerpo TEXT NOT NULL DEFAULT \'Arial, sans-serif\'',
-  'tamano_cuerpo TEXT NOT NULL DEFAULT \'12\'',
+// Migración: agregar columnas a plantillas si ya existía con esquema viejo
+;[
+  "fuente_titulo TEXT NOT NULL DEFAULT 'Arial, sans-serif'",
+  "tamano_titulo TEXT NOT NULL DEFAULT '16'",
+  "fuente_cuerpo TEXT NOT NULL DEFAULT 'Arial, sans-serif'",
+  "tamano_cuerpo TEXT NOT NULL DEFAULT '12'",
+  "enc_contenido  TEXT NOT NULL DEFAULT ''",
+  "enc_fuente     TEXT NOT NULL DEFAULT 'Arial, sans-serif'",
+  "enc_tamano     TEXT NOT NULL DEFAULT '10'",
+  "enc_paginas    TEXT NOT NULL DEFAULT 'todas'",
+  "pie_contenido  TEXT NOT NULL DEFAULT ''",
+  "pie_fuente     TEXT NOT NULL DEFAULT 'Arial, sans-serif'",
+  "pie_tamano     TEXT NOT NULL DEFAULT '10'",
+  "pie_paginas    TEXT NOT NULL DEFAULT 'todas'",
+  "num_pagina     INTEGER NOT NULL DEFAULT 0",
+  "num_pagina_pos TEXT NOT NULL DEFAULT 'centro'",
+  "num_pagina_fmt TEXT NOT NULL DEFAULT 'X'",
 ].forEach(col => {
   try { db.exec(`ALTER TABLE plantillas ADD COLUMN ${col}`) } catch {}
 })
@@ -279,32 +306,60 @@ app.get('/api/plantillas', (req, res) => {
   res.json(rows)
 })
 
+function extractPlantilla(body) {
+  return {
+    nombre:        body.nombre?.trim() ?? '',
+    descripcion:   body.descripcion   ?? '',
+    fuente_titulo: body.fuente_titulo ?? 'Arial, sans-serif',
+    tamano_titulo: body.tamano_titulo ?? '16',
+    fuente_cuerpo: body.fuente_cuerpo ?? 'Arial, sans-serif',
+    tamano_cuerpo: body.tamano_cuerpo ?? '12',
+    enc_contenido: body.enc_contenido ?? '',
+    enc_fuente:    body.enc_fuente    ?? 'Arial, sans-serif',
+    enc_tamano:    body.enc_tamano    ?? '10',
+    enc_paginas:   body.enc_paginas   ?? 'todas',
+    pie_contenido: body.pie_contenido ?? '',
+    pie_fuente:    body.pie_fuente    ?? 'Arial, sans-serif',
+    pie_tamano:    body.pie_tamano    ?? '10',
+    pie_paginas:   body.pie_paginas   ?? 'todas',
+    num_pagina:    body.num_pagina    ? 1 : 0,
+    num_pagina_pos:body.num_pagina_pos?? 'centro',
+    num_pagina_fmt:body.num_pagina_fmt?? 'X',
+  }
+}
+
 app.post('/api/plantillas', (req, res) => {
-  const {
-    nombre, descripcion = '',
-    fuente_titulo = 'Arial, sans-serif', tamano_titulo = '16',
-    fuente_cuerpo = 'Arial, sans-serif', tamano_cuerpo = '12',
-  } = req.body
-  if (!nombre?.trim()) return res.status(400).json({ detail: 'El nombre es requerido' })
-  const { lastInsertRowid } = db.prepare(
-    `INSERT INTO plantillas (nombre, descripcion, fuente_titulo, tamano_titulo, fuente_cuerpo, tamano_cuerpo)
-     VALUES (?, ?, ?, ?, ?, ?)`
-  ).run(nombre.trim(), descripcion.trim(), fuente_titulo, tamano_titulo, fuente_cuerpo, tamano_cuerpo)
+  const p = extractPlantilla(req.body)
+  if (!p.nombre) return res.status(400).json({ detail: 'El nombre es requerido' })
+  const { lastInsertRowid } = db.prepare(`
+    INSERT INTO plantillas
+      (nombre, descripcion, fuente_titulo, tamano_titulo, fuente_cuerpo, tamano_cuerpo,
+       enc_contenido, enc_fuente, enc_tamano, enc_paginas,
+       pie_contenido, pie_fuente, pie_tamano, pie_paginas,
+       num_pagina, num_pagina_pos, num_pagina_fmt)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+  `).run(p.nombre, p.descripcion, p.fuente_titulo, p.tamano_titulo, p.fuente_cuerpo, p.tamano_cuerpo,
+         p.enc_contenido, p.enc_fuente, p.enc_tamano, p.enc_paginas,
+         p.pie_contenido, p.pie_fuente, p.pie_tamano, p.pie_paginas,
+         p.num_pagina, p.num_pagina_pos, p.num_pagina_fmt)
   res.status(201).json(db.prepare('SELECT * FROM plantillas WHERE id = ?').get(lastInsertRowid))
 })
 
 app.put('/api/plantillas/:id', (req, res) => {
-  const {
-    nombre, descripcion = '',
-    fuente_titulo = 'Arial, sans-serif', tamano_titulo = '16',
-    fuente_cuerpo = 'Arial, sans-serif', tamano_cuerpo = '12',
-  } = req.body
-  if (!nombre?.trim()) return res.status(400).json({ detail: 'El nombre es requerido' })
-  const { changes } = db.prepare(
-    `UPDATE plantillas SET nombre=?, descripcion=?,
-     fuente_titulo=?, tamano_titulo=?, fuente_cuerpo=?, tamano_cuerpo=?,
-     updated_at=CURRENT_TIMESTAMP WHERE id=?`
-  ).run(nombre.trim(), descripcion.trim(), fuente_titulo, tamano_titulo, fuente_cuerpo, tamano_cuerpo, req.params.id)
+  const p = extractPlantilla(req.body)
+  if (!p.nombre) return res.status(400).json({ detail: 'El nombre es requerido' })
+  const { changes } = db.prepare(`
+    UPDATE plantillas SET
+      nombre=?, descripcion=?, fuente_titulo=?, tamano_titulo=?, fuente_cuerpo=?, tamano_cuerpo=?,
+      enc_contenido=?, enc_fuente=?, enc_tamano=?, enc_paginas=?,
+      pie_contenido=?, pie_fuente=?, pie_tamano=?, pie_paginas=?,
+      num_pagina=?, num_pagina_pos=?, num_pagina_fmt=?,
+      updated_at=CURRENT_TIMESTAMP WHERE id=?
+  `).run(p.nombre, p.descripcion, p.fuente_titulo, p.tamano_titulo, p.fuente_cuerpo, p.tamano_cuerpo,
+         p.enc_contenido, p.enc_fuente, p.enc_tamano, p.enc_paginas,
+         p.pie_contenido, p.pie_fuente, p.pie_tamano, p.pie_paginas,
+         p.num_pagina, p.num_pagina_pos, p.num_pagina_fmt,
+         req.params.id)
   if (!changes) return res.status(404).json({ detail: 'Plantilla no encontrada' })
   res.json(db.prepare('SELECT * FROM plantillas WHERE id = ?').get(req.params.id))
 })

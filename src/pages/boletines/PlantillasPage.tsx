@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import {
   Table, Button, Modal, Form, Input, Select, Tag, Space,
   Popconfirm, Tooltip, Typography, Empty, Divider, message,
+  Tabs, Switch, Radio,
 } from 'antd'
 import RichTextEditor from '../../components/RichTextEditor/RichTextEditor'
 import {
@@ -46,6 +47,9 @@ interface Plantilla {
   id: number; nombre: string; descripcion: string
   fuente_titulo: string; tamano_titulo: string
   fuente_cuerpo: string; tamano_cuerpo: string
+  enc_contenido: string; enc_fuente: string; enc_tamano: string; enc_paginas: string
+  pie_contenido: string; pie_fuente: string; pie_tamano: string; pie_paginas: string
+  num_pagina: number; num_pagina_pos: string; num_pagina_fmt: string
   total_secciones: number; created_at: string
 }
 
@@ -65,6 +69,61 @@ const PLANTILLA_DEFAULTS = {
   nombre: '', descripcion: '',
   fuente_titulo: FUENTES[0].value, tamano_titulo: '16',
   fuente_cuerpo: FUENTES[0].value, tamano_cuerpo: '12',
+  enc_contenido: '', enc_fuente: FUENTES[0].value, enc_tamano: '10', enc_paginas: 'todas',
+  pie_contenido: '', pie_fuente: FUENTES[0].value, pie_tamano: '10', pie_paginas: 'todas',
+  num_pagina: false, num_pagina_pos: 'centro', num_pagina_fmt: 'X',
+}
+
+
+// ── Tab Tipografía (necesita Form.useWatch, va dentro del Form) ───────────────
+
+function TipografiaTab() {
+  const fuenteTitulo = Form.useWatch('fuente_titulo')
+  const tamanoTitulo = Form.useWatch('tamano_titulo')
+  const fuenteCuerpo = Form.useWatch('fuente_cuerpo')
+  const tamanoCuerpo = Form.useWatch('tamano_cuerpo')
+  return (
+    <>
+      <Divider orientation="left" orientationMargin={0} style={{ fontSize: 12, color: '#888', margin: '0 0 12px' }}>
+        Nombre de Sección
+      </Divider>
+      <div style={{ display: 'flex', gap: 12 }}>
+        <Form.Item name="fuente_titulo" label="Fuente" rules={[{ required: true }]} style={{ flex: 3 }}>
+          <Select options={FUENTE_OPS} />
+        </Form.Item>
+        <Form.Item name="tamano_titulo" label="Tamaño" rules={[{ required: true }]} style={{ flex: 1 }}>
+          <Select options={TAMANO_OPS} />
+        </Form.Item>
+      </div>
+      <div style={{
+        background: '#f5f7ff', border: '1px solid #e0e8ff', borderRadius: 6,
+        padding: '8px 12px', marginBottom: 16,
+        fontFamily: fuenteTitulo, fontSize: `${tamanoTitulo || 16}px`,
+        fontWeight: 600, color: '#1A569E',
+      }}>
+        Vista previa: Nombre de la sección
+      </div>
+
+      <Divider orientation="left" orientationMargin={0} style={{ fontSize: 12, color: '#888', margin: '4px 0 12px' }}>
+        Cuerpo
+      </Divider>
+      <div style={{ display: 'flex', gap: 12 }}>
+        <Form.Item name="fuente_cuerpo" label="Fuente" rules={[{ required: true }]} style={{ flex: 3 }}>
+          <Select options={FUENTE_OPS} />
+        </Form.Item>
+        <Form.Item name="tamano_cuerpo" label="Tamaño" rules={[{ required: true }]} style={{ flex: 1 }}>
+          <Select options={TAMANO_OPS} />
+        </Form.Item>
+      </div>
+      <div style={{
+        background: '#fafafa', border: '1px solid #f0f0f0', borderRadius: 6,
+        padding: '8px 12px', marginBottom: 4,
+        fontFamily: fuenteCuerpo, fontSize: `${tamanoCuerpo || 12}px`, color: '#333',
+      }}>
+        Vista previa: Así se verá el texto del cuerpo de cada sección del boletín.
+      </div>
+    </>
+  )
 }
 
 // ── Modal Plantilla ───────────────────────────────────────────────────────────
@@ -76,13 +135,15 @@ function PlantillaModal({ open, plantilla, onOk, onCancel }: {
 }) {
   const [form]    = Form.useForm()
   const [loading, setLoading] = useState(false)
-  const fuenteTitulo = Form.useWatch('fuente_titulo', form)
-  const tamanoTitulo = Form.useWatch('tamano_titulo', form)
-  const fuenteCuerpo = Form.useWatch('fuente_cuerpo', form)
-  const tamanoCuerpo = Form.useWatch('tamano_cuerpo', form)
+  const numPagina = Form.useWatch('num_pagina', form)
 
   useEffect(() => {
-    if (open) form.setFieldsValue(plantilla ?? PLANTILLA_DEFAULTS)
+    if (open) {
+      const vals = plantilla
+        ? { ...plantilla, num_pagina: !!plantilla.num_pagina }
+        : PLANTILLA_DEFAULTS
+      form.setFieldsValue(vals)
+    }
   }, [open, plantilla, form])
 
   const handleOk = async () => {
@@ -93,60 +154,129 @@ function PlantillaModal({ open, plantilla, onOk, onCancel }: {
     } finally { setLoading(false) }
   }
 
+  // Controladores RTE para enc/pie (fuera del Form)
+  const handleRte = (field: string) => (html: string) => form.setFieldValue(field, html)
+
+  const tabItems = [
+    {
+      key: 'general',
+      label: 'General',
+      children: (
+        <>
+          <Form.Item name="nombre" label="Nombre de la plantilla" rules={[{ required: true }]}>
+            <Input placeholder="Ej. Boletín Dominical Estándar" />
+          </Form.Item>
+          <Form.Item name="descripcion" label="Descripción">
+            <Input.TextArea rows={2} placeholder="Descripción opcional" />
+          </Form.Item>
+        </>
+      ),
+    },
+    {
+      key: 'tipografia',
+      label: 'Tipografía',
+      children: <TipografiaTab />,
+    },
+    {
+      key: 'encabezado',
+      label: 'Encabezado',
+      children: (
+        <>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <Form.Item name="enc_fuente" label="Fuente" style={{ flex: 3 }}>
+              <Select options={FUENTE_OPS} />
+            </Form.Item>
+            <Form.Item name="enc_tamano" label="Tamaño" style={{ flex: 1 }}>
+              <Select options={TAMANO_OPS} />
+            </Form.Item>
+          </div>
+          <Form.Item name="enc_paginas" label="Mostrar en">
+            <Radio.Group>
+              <Radio value="todas">Todas las páginas</Radio>
+              <Radio value="primera">Solo primera página</Radio>
+            </Radio.Group>
+          </Form.Item>
+          <Form.Item label="Contenido del encabezado">
+            <RichTextEditor
+              value={form.getFieldValue('enc_contenido')}
+              onChange={handleRte('enc_contenido')}
+              placeholder="Texto del encabezado (nombre del club, logo, etc.)"
+              fontFamily={form.getFieldValue('enc_fuente')}
+              minHeight={120}
+            />
+          </Form.Item>
+        </>
+      ),
+    },
+    {
+      key: 'pie',
+      label: 'Pie de página',
+      children: (
+        <>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <Form.Item name="pie_fuente" label="Fuente" style={{ flex: 3 }}>
+              <Select options={FUENTE_OPS} />
+            </Form.Item>
+            <Form.Item name="pie_tamano" label="Tamaño" style={{ flex: 1 }}>
+              <Select options={TAMANO_OPS} />
+            </Form.Item>
+          </div>
+          <Form.Item name="pie_paginas" label="Mostrar en">
+            <Radio.Group>
+              <Radio value="todas">Todas las páginas</Radio>
+              <Radio value="primera">Solo primera página</Radio>
+            </Radio.Group>
+          </Form.Item>
+          <Form.Item label="Contenido del pie de página">
+            <RichTextEditor
+              value={form.getFieldValue('pie_contenido')}
+              onChange={handleRte('pie_contenido')}
+              placeholder="Texto del pie (dirección, contacto, derechos, etc.)"
+              fontFamily={form.getFieldValue('pie_fuente')}
+              minHeight={120}
+            />
+          </Form.Item>
+        </>
+      ),
+    },
+    {
+      key: 'paginacion',
+      label: 'Paginación',
+      children: (
+        <>
+          <Form.Item name="num_pagina" label="Mostrar número de página" valuePropName="checked">
+            <Switch />
+          </Form.Item>
+          {numPagina && (
+            <>
+              <Form.Item name="num_pagina_pos" label="Posición">
+                <Radio.Group>
+                  <Radio value="izquierda">Izquierda</Radio>
+                  <Radio value="centro">Centro</Radio>
+                  <Radio value="derecha">Derecha</Radio>
+                </Radio.Group>
+              </Form.Item>
+              <Form.Item name="num_pagina_fmt" label="Formato">
+                <Radio.Group>
+                  <Radio value="X">1, 2, 3…</Radio>
+                  <Radio value="Pagina X">Página 1, Página 2…</Radio>
+                  <Radio value="X de Y">1 de 5, 2 de 5…</Radio>
+                </Radio.Group>
+              </Form.Item>
+            </>
+          )}
+        </>
+      ),
+    },
+  ]
+
   return (
     <Modal open={open} title={plantilla ? 'Editar Plantilla' : 'Nueva Plantilla'}
       onOk={handleOk} onCancel={onCancel} okText="Guardar"
-      confirmLoading={loading} width={620}>
-      <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
-
-        <Form.Item name="nombre" label="Nombre de la plantilla" rules={[{ required: true }]}>
-          <Input placeholder="Ej. Boletín Dominical Estándar" />
-        </Form.Item>
-        <Form.Item name="descripcion" label="Descripción">
-          <Input.TextArea rows={2} placeholder="Descripción opcional" />
-        </Form.Item>
-
-        <Divider orientation="left" orientationMargin={0} style={{ fontSize: 12, color: '#888', margin: '4px 0 12px' }}>
-          Tipografía del Nombre de Sección
-        </Divider>
-
-        <div style={{ display: 'flex', gap: 12 }}>
-          <Form.Item name="fuente_titulo" label="Fuente" rules={[{ required: true }]} style={{ flex: 3 }}>
-            <Select options={FUENTE_OPS} />
-          </Form.Item>
-          <Form.Item name="tamano_titulo" label="Tamaño" rules={[{ required: true }]} style={{ flex: 1 }}>
-            <Select options={TAMANO_OPS} />
-          </Form.Item>
-        </div>
-        <div style={{
-          background: '#f5f7ff', border: '1px solid #e0e8ff', borderRadius: 6,
-          padding: '8px 12px', marginBottom: 16,
-          fontFamily: fuenteTitulo, fontSize: `${tamanoTitulo || 16}px`,
-          fontWeight: 600, color: '#1A569E',
-        }}>
-          Vista previa: Nombre de la sección
-        </div>
-
-        <Divider orientation="left" orientationMargin={0} style={{ fontSize: 12, color: '#888', margin: '4px 0 12px' }}>
-          Tipografía del Cuerpo
-        </Divider>
-
-        <div style={{ display: 'flex', gap: 12 }}>
-          <Form.Item name="fuente_cuerpo" label="Fuente" rules={[{ required: true }]} style={{ flex: 3 }}>
-            <Select options={FUENTE_OPS} />
-          </Form.Item>
-          <Form.Item name="tamano_cuerpo" label="Tamaño" rules={[{ required: true }]} style={{ flex: 1 }}>
-            <Select options={TAMANO_OPS} />
-          </Form.Item>
-        </div>
-        <div style={{
-          background: '#fafafa', border: '1px solid #f0f0f0', borderRadius: 6,
-          padding: '8px 12px', marginBottom: 4,
-          fontFamily: fuenteCuerpo, fontSize: `${tamanoCuerpo || 12}px`, color: '#333',
-        }}>
-          Vista previa: Así se verá el texto del cuerpo de cada sección del boletín.
-        </div>
-
+      confirmLoading={loading} width={680}
+      styles={{ body: { paddingTop: 8 } }}>
+      <Form form={form} layout="vertical">
+        <Tabs items={tabItems} size="small" />
       </Form>
     </Modal>
   )
