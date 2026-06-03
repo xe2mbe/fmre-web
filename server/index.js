@@ -17,11 +17,15 @@ db.pragma('foreign_keys = ON')
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS plantillas (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    nombre      TEXT    NOT NULL,
-    descripcion TEXT    NOT NULL DEFAULT '',
-    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre         TEXT    NOT NULL,
+    descripcion    TEXT    NOT NULL DEFAULT '',
+    fuente_titulo  TEXT    NOT NULL DEFAULT 'Arial, sans-serif',
+    tamano_titulo  TEXT    NOT NULL DEFAULT '16',
+    fuente_cuerpo  TEXT    NOT NULL DEFAULT 'Arial, sans-serif',
+    tamano_cuerpo  TEXT    NOT NULL DEFAULT '12',
+    created_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at     DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
   CREATE TABLE IF NOT EXISTS secciones_plantilla (
@@ -40,13 +44,13 @@ db.exec(`
   );
 `)
 
-// Migración: agregar columnas nuevas si la tabla ya existía con esquema viejo
+// Migración: agregar columnas nuevas a plantillas si la tabla ya existía
 ;['fuente_titulo TEXT NOT NULL DEFAULT \'Arial, sans-serif\'',
   'tamano_titulo TEXT NOT NULL DEFAULT \'16\'',
   'fuente_cuerpo TEXT NOT NULL DEFAULT \'Arial, sans-serif\'',
   'tamano_cuerpo TEXT NOT NULL DEFAULT \'12\'',
 ].forEach(col => {
-  try { db.exec(`ALTER TABLE secciones_plantilla ADD COLUMN ${col}`) } catch {}
+  try { db.exec(`ALTER TABLE plantillas ADD COLUMN ${col}`) } catch {}
 })
 
 app.use(cors())
@@ -276,20 +280,31 @@ app.get('/api/plantillas', (req, res) => {
 })
 
 app.post('/api/plantillas', (req, res) => {
-  const { nombre, descripcion = '' } = req.body
+  const {
+    nombre, descripcion = '',
+    fuente_titulo = 'Arial, sans-serif', tamano_titulo = '16',
+    fuente_cuerpo = 'Arial, sans-serif', tamano_cuerpo = '12',
+  } = req.body
   if (!nombre?.trim()) return res.status(400).json({ detail: 'El nombre es requerido' })
   const { lastInsertRowid } = db.prepare(
-    'INSERT INTO plantillas (nombre, descripcion) VALUES (?, ?)'
-  ).run(nombre.trim(), descripcion.trim())
+    `INSERT INTO plantillas (nombre, descripcion, fuente_titulo, tamano_titulo, fuente_cuerpo, tamano_cuerpo)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).run(nombre.trim(), descripcion.trim(), fuente_titulo, tamano_titulo, fuente_cuerpo, tamano_cuerpo)
   res.status(201).json(db.prepare('SELECT * FROM plantillas WHERE id = ?').get(lastInsertRowid))
 })
 
 app.put('/api/plantillas/:id', (req, res) => {
-  const { nombre, descripcion = '' } = req.body
+  const {
+    nombre, descripcion = '',
+    fuente_titulo = 'Arial, sans-serif', tamano_titulo = '16',
+    fuente_cuerpo = 'Arial, sans-serif', tamano_cuerpo = '12',
+  } = req.body
   if (!nombre?.trim()) return res.status(400).json({ detail: 'El nombre es requerido' })
   const { changes } = db.prepare(
-    'UPDATE plantillas SET nombre=?, descripcion=?, updated_at=CURRENT_TIMESTAMP WHERE id=?'
-  ).run(nombre.trim(), descripcion.trim(), req.params.id)
+    `UPDATE plantillas SET nombre=?, descripcion=?,
+     fuente_titulo=?, tamano_titulo=?, fuente_cuerpo=?, tamano_cuerpo=?,
+     updated_at=CURRENT_TIMESTAMP WHERE id=?`
+  ).run(nombre.trim(), descripcion.trim(), fuente_titulo, tamano_titulo, fuente_cuerpo, tamano_cuerpo, req.params.id)
   if (!changes) return res.status(404).json({ detail: 'Plantilla no encontrada' })
   res.json(db.prepare('SELECT * FROM plantillas WHERE id = ?').get(req.params.id))
 })
@@ -310,12 +325,7 @@ app.get('/api/plantillas/:id/secciones', (req, res) => {
 })
 
 app.post('/api/plantillas/:id/secciones', (req, res) => {
-  const {
-    nombre, tipo,
-    fuente_titulo = 'Arial, sans-serif', tamano_titulo = '16',
-    fuente_cuerpo = 'Arial, sans-serif', tamano_cuerpo = '12',
-    contenido = '',
-  } = req.body
+  const { nombre, tipo, contenido = '' } = req.body
   if (!nombre?.trim()) return res.status(400).json({ detail: 'El nombre es requerido' })
   if (!['estatica', 'dinamica', 'temporal'].includes(tipo))
     return res.status(400).json({ detail: 'Tipo inválido' })
@@ -325,10 +335,9 @@ app.post('/api/plantillas/:id/secciones', (req, res) => {
   ).get(req.params.id).m
 
   const { lastInsertRowid } = db.prepare(`
-    INSERT INTO secciones_plantilla
-      (plantilla_id, nombre, tipo, fuente_titulo, tamano_titulo, fuente_cuerpo, tamano_cuerpo, contenido, orden)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(req.params.id, nombre.trim(), tipo, fuente_titulo, tamano_titulo, fuente_cuerpo, tamano_cuerpo, contenido, maxOrden + 1)
+    INSERT INTO secciones_plantilla (plantilla_id, nombre, tipo, contenido, orden)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(req.params.id, nombre.trim(), tipo, contenido, maxOrden + 1)
 
   res.status(201).json(
     db.prepare('SELECT * FROM secciones_plantilla WHERE id = ?').get(lastInsertRowid)
@@ -336,20 +345,16 @@ app.post('/api/plantillas/:id/secciones', (req, res) => {
 })
 
 app.put('/api/secciones/:id', (req, res) => {
-  const { nombre, tipo, fuente_titulo, tamano_titulo, fuente_cuerpo, tamano_cuerpo, contenido } = req.body
+  const { nombre, tipo, contenido } = req.body
   if (!nombre?.trim()) return res.status(400).json({ detail: 'El nombre es requerido' })
   if (!['estatica', 'dinamica', 'temporal'].includes(tipo))
     return res.status(400).json({ detail: 'Tipo inválido' })
 
   const { changes } = db.prepare(`
     UPDATE secciones_plantilla
-    SET nombre=?, tipo=?, fuente_titulo=?, tamano_titulo=?, fuente_cuerpo=?, tamano_cuerpo=?,
-        contenido=?, updated_at=CURRENT_TIMESTAMP
+    SET nombre=?, tipo=?, contenido=?, updated_at=CURRENT_TIMESTAMP
     WHERE id=?
-  `).run(nombre.trim(), tipo,
-    fuente_titulo ?? 'Arial, sans-serif', tamano_titulo ?? '16',
-    fuente_cuerpo ?? 'Arial, sans-serif', tamano_cuerpo ?? '12',
-    contenido ?? '', req.params.id)
+  `).run(nombre.trim(), tipo, contenido ?? '', req.params.id)
 
   if (!changes) return res.status(404).json({ detail: 'Sección no encontrada' })
   res.json(db.prepare('SELECT * FROM secciones_plantilla WHERE id = ?').get(req.params.id))

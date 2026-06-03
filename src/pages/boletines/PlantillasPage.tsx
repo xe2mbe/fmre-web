@@ -44,14 +44,14 @@ const TIPOS: { label: string; value: string; color: string }[] = [
 
 interface Plantilla {
   id: number; nombre: string; descripcion: string
+  fuente_titulo: string; tamano_titulo: string
+  fuente_cuerpo: string; tamano_cuerpo: string
   total_secciones: number; created_at: string
 }
 
 interface Seccion {
-  id: number; plantilla_id: number; nombre: string; tipo: string
-  fuente_titulo: string; tamano_titulo: string
-  fuente_cuerpo: string; tamano_cuerpo: string
-  contenido: string; orden: number
+  id: number; plantilla_id: number; nombre: string
+  tipo: string; contenido: string; orden: number
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -61,18 +61,28 @@ function tipoTag(tipo: string) {
   return <Tag color={t?.color}>{t?.label ?? tipo}</Tag>
 }
 
+const PLANTILLA_DEFAULTS = {
+  nombre: '', descripcion: '',
+  fuente_titulo: FUENTES[0].value, tamano_titulo: '16',
+  fuente_cuerpo: FUENTES[0].value, tamano_cuerpo: '12',
+}
+
 // ── Modal Plantilla ───────────────────────────────────────────────────────────
 
 function PlantillaModal({ open, plantilla, onOk, onCancel }: {
   open: boolean; plantilla: Plantilla | null
-  onOk: (values: { nombre: string; descripcion: string }) => Promise<void>
+  onOk: (values: typeof PLANTILLA_DEFAULTS) => Promise<void>
   onCancel: () => void
 }) {
-  const [form] = Form.useForm()
+  const [form]    = Form.useForm()
   const [loading, setLoading] = useState(false)
+  const fuenteTitulo = Form.useWatch('fuente_titulo', form)
+  const tamanoTitulo = Form.useWatch('tamano_titulo', form)
+  const fuenteCuerpo = Form.useWatch('fuente_cuerpo', form)
+  const tamanoCuerpo = Form.useWatch('tamano_cuerpo', form)
 
   useEffect(() => {
-    if (open) form.setFieldsValue(plantilla ?? { nombre: '', descripcion: '' })
+    if (open) form.setFieldsValue(plantilla ?? PLANTILLA_DEFAULTS)
   }, [open, plantilla, form])
 
   const handleOk = async () => {
@@ -85,27 +95,64 @@ function PlantillaModal({ open, plantilla, onOk, onCancel }: {
 
   return (
     <Modal open={open} title={plantilla ? 'Editar Plantilla' : 'Nueva Plantilla'}
-      onOk={handleOk} onCancel={onCancel} okText="Guardar" confirmLoading={loading}>
+      onOk={handleOk} onCancel={onCancel} okText="Guardar"
+      confirmLoading={loading} width={620}>
       <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
-        <Form.Item name="nombre" label="Nombre" rules={[{ required: true }]}>
-          <Input placeholder="Ej. Plantilla Estándar" />
+
+        <Form.Item name="nombre" label="Nombre de la plantilla" rules={[{ required: true }]}>
+          <Input placeholder="Ej. Boletín Dominical Estándar" />
         </Form.Item>
         <Form.Item name="descripcion" label="Descripción">
           <Input.TextArea rows={2} placeholder="Descripción opcional" />
         </Form.Item>
+
+        <Divider orientation="left" orientationMargin={0} style={{ fontSize: 12, color: '#888', margin: '4px 0 12px' }}>
+          Tipografía del Nombre de Sección
+        </Divider>
+
+        <div style={{ display: 'flex', gap: 12 }}>
+          <Form.Item name="fuente_titulo" label="Fuente" rules={[{ required: true }]} style={{ flex: 3 }}>
+            <Select options={FUENTE_OPS} />
+          </Form.Item>
+          <Form.Item name="tamano_titulo" label="Tamaño" rules={[{ required: true }]} style={{ flex: 1 }}>
+            <Select options={TAMANO_OPS} />
+          </Form.Item>
+        </div>
+        <div style={{
+          background: '#f5f7ff', border: '1px solid #e0e8ff', borderRadius: 6,
+          padding: '8px 12px', marginBottom: 16,
+          fontFamily: fuenteTitulo, fontSize: `${tamanoTitulo || 16}px`,
+          fontWeight: 600, color: '#1A569E',
+        }}>
+          Vista previa: Nombre de la sección
+        </div>
+
+        <Divider orientation="left" orientationMargin={0} style={{ fontSize: 12, color: '#888', margin: '4px 0 12px' }}>
+          Tipografía del Cuerpo
+        </Divider>
+
+        <div style={{ display: 'flex', gap: 12 }}>
+          <Form.Item name="fuente_cuerpo" label="Fuente" rules={[{ required: true }]} style={{ flex: 3 }}>
+            <Select options={FUENTE_OPS} />
+          </Form.Item>
+          <Form.Item name="tamano_cuerpo" label="Tamaño" rules={[{ required: true }]} style={{ flex: 1 }}>
+            <Select options={TAMANO_OPS} />
+          </Form.Item>
+        </div>
+        <div style={{
+          background: '#fafafa', border: '1px solid #f0f0f0', borderRadius: 6,
+          padding: '8px 12px', marginBottom: 4,
+          fontFamily: fuenteCuerpo, fontSize: `${tamanoCuerpo || 12}px`, color: '#333',
+        }}>
+          Vista previa: Así se verá el texto del cuerpo de cada sección del boletín.
+        </div>
+
       </Form>
     </Modal>
   )
 }
 
 // ── Modal Sección ─────────────────────────────────────────────────────────────
-
-const DEFAULTS_SECCION = {
-  nombre: '', tipo: 'dinamica',
-  fuente_titulo: FUENTES[0].value, tamano_titulo: '16',
-  fuente_cuerpo: FUENTES[0].value, tamano_cuerpo: '12',
-  contenido: '',
-}
 
 function SeccionModal({ open, seccion, onOk, onCancel }: {
   open: boolean; seccion: Seccion | null
@@ -114,12 +161,9 @@ function SeccionModal({ open, seccion, onOk, onCancel }: {
 }) {
   const [form]    = Form.useForm()
   const [loading, setLoading] = useState(false)
-  const fuenteTitulo = Form.useWatch('fuente_titulo', form)
-  const tamanoTitulo = Form.useWatch('tamano_titulo', form)
-  const fuenteCuerpo = Form.useWatch('fuente_cuerpo', form)
 
   useEffect(() => {
-    if (open) form.setFieldsValue(seccion ?? DEFAULTS_SECCION)
+    if (open) form.setFieldsValue(seccion ?? { nombre: '', tipo: 'dinamica', contenido: '' })
   }, [open, seccion, form])
 
   const handleOk = async () => {
@@ -138,10 +182,8 @@ function SeccionModal({ open, seccion, onOk, onCancel }: {
   return (
     <Modal open={open} title={seccion ? 'Editar Sección' : 'Nueva Sección'}
       onOk={handleOk} onCancel={onCancel} okText="Guardar"
-      confirmLoading={loading} width={680}>
+      confirmLoading={loading} width={640}>
       <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
-
-        {/* Nombre + Tipo */}
         <div style={{ display: 'flex', gap: 12 }}>
           <Form.Item name="nombre" label="Nombre de la sección"
             rules={[{ required: true }]} style={{ flex: 2 }}>
@@ -151,52 +193,12 @@ function SeccionModal({ open, seccion, onOk, onCancel }: {
             <Select options={tipoOps} />
           </Form.Item>
         </div>
-
-        <Divider orientation="left" orientationMargin={0} style={{ fontSize: 12, color: '#888', margin: '4px 0 12px' }}>
-          Tipografía del Nombre de Sección
-        </Divider>
-
-        {/* Tipografía del título */}
-        <div style={{ display: 'flex', gap: 12, marginBottom: 4 }}>
-          <Form.Item name="fuente_titulo" label="Fuente" rules={[{ required: true }]} style={{ flex: 3 }}>
-            <Select options={FUENTE_OPS} />
-          </Form.Item>
-          <Form.Item name="tamano_titulo" label="Tamaño" rules={[{ required: true }]} style={{ flex: 1 }}>
-            <Select options={TAMANO_OPS} />
-          </Form.Item>
-        </div>
-
-        {/* Preview del título */}
-        <div style={{
-          background: '#f5f7ff', border: '1px solid #e0e8ff', borderRadius: 6,
-          padding: '8px 12px', marginBottom: 16,
-          fontFamily: fuenteTitulo, fontSize: `${tamanoTitulo || 16}px`, fontWeight: 600, color: '#1A569E',
-        }}>
-          Vista previa: Nombre de la sección
-        </div>
-
-        <Divider orientation="left" orientationMargin={0} style={{ fontSize: 12, color: '#888', margin: '4px 0 12px' }}>
-          Tipografía del Cuerpo
-        </Divider>
-
-        {/* Tipografía del cuerpo */}
-        <div style={{ display: 'flex', gap: 12 }}>
-          <Form.Item name="fuente_cuerpo" label="Fuente" rules={[{ required: true }]} style={{ flex: 3 }}>
-            <Select options={FUENTE_OPS} />
-          </Form.Item>
-          <Form.Item name="tamano_cuerpo" label="Tamaño" rules={[{ required: true }]} style={{ flex: 1 }}>
-            <Select options={TAMANO_OPS} />
-          </Form.Item>
-        </div>
-
-        {/* Contenido predeterminado */}
         <Form.Item name="contenido" label="Contenido predeterminado">
           <RichTextEditor
             value={form.getFieldValue('contenido')}
             onChange={html => form.setFieldValue('contenido', html)}
-            placeholder="Contenido predeterminado para esta sección (opcional)"
-            fontFamily={fuenteCuerpo}
-            minHeight={130}
+            placeholder="Contenido predeterminado (opcional)"
+            minHeight={180}
           />
         </Form.Item>
       </Form>
@@ -240,7 +242,7 @@ export default function PlantillasPage() {
 
   // ── CRUD Plantillas ────────────────────────────────────────────────────────
 
-  const guardarPlantilla = async (values: { nombre: string; descripcion: string }) => {
+  const guardarPlantilla = async (values: typeof PLANTILLA_DEFAULTS) => {
     const url    = modalPlantilla.item ? `${API}/api/plantillas/${modalPlantilla.item.id}` : `${API}/api/plantillas`
     const method = modalPlantilla.item ? 'PUT' : 'POST'
     const res    = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(values) })
@@ -305,9 +307,6 @@ export default function PlantillasPage() {
   const colsSeccion: ColumnsType<Seccion> = [
     { title: 'Nombre', dataIndex: 'nombre', key: 'nombre' },
     { title: 'Tipo', dataIndex: 'tipo', key: 'tipo', width: 110, render: tipoTag },
-    { title: 'Fuente', dataIndex: 'fuente', key: 'fuente', width: 160,
-      render: (v: string) => <span style={{ fontFamily: v, fontSize: 13 }}>{FUENTES.find(f => f.value === v)?.label ?? v}</span>,
-    },
     { title: '', key: 'actions', width: 80, render: (_, r) => (
         <Space size={4}>
           <Tooltip title="Editar"><Button size="small" icon={<EditOutlined />}
@@ -369,6 +368,33 @@ export default function PlantillasPage() {
                 </Button>
               </div>
 
+              {/* Tipografía de la plantilla */}
+              <div style={{
+                display: 'flex', gap: 16, flexWrap: 'wrap',
+                background: '#f5f7ff', border: '1px solid #e0e8ff',
+                borderRadius: 8, padding: '8px 12px', marginBottom: 12,
+              }}>
+                <div>
+                  <Text type="secondary" style={{ fontSize: 11 }}>Nombre de sección:</Text>
+                  <span style={{
+                    fontFamily: plantillaActiva.fuente_titulo,
+                    fontSize: `${plantillaActiva.tamano_titulo || 16}px`,
+                    fontWeight: 600, color: FMRE_BLUE, marginLeft: 8,
+                  }}>
+                    {FUENTES.find(f => f.value === plantillaActiva.fuente_titulo)?.label ?? 'Arial'} {plantillaActiva.tamano_titulo}px
+                  </span>
+                </div>
+                <div>
+                  <Text type="secondary" style={{ fontSize: 11 }}>Cuerpo:</Text>
+                  <span style={{
+                    fontFamily: plantillaActiva.fuente_cuerpo,
+                    fontSize: `${plantillaActiva.tamano_cuerpo || 12}px`,
+                    color: '#333', marginLeft: 8,
+                  }}>
+                    {FUENTES.find(f => f.value === plantillaActiva.fuente_cuerpo)?.label ?? 'Arial'} {plantillaActiva.tamano_cuerpo}px
+                  </span>
+                </div>
+              </div>
               <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
                 {TIPOS.map(t => (
                   <Tag key={t.value} color={t.color}>{t.label}</Tag>
