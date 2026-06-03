@@ -5,8 +5,8 @@ import {
 } from 'antd'
 import {
   UserOutlined, HomeOutlined, WifiOutlined,
-  LockOutlined, ArrowLeftOutlined, ArrowRightOutlined,
-  CheckCircleOutlined, GlobalOutlined,
+  MailOutlined as MailIcon, ArrowLeftOutlined, ArrowRightOutlined,
+  CheckCircleOutlined, SafetyOutlined, SendOutlined,
 } from '@ant-design/icons'
 
 const { Option } = Select
@@ -39,7 +39,7 @@ const STEPS = [
   { title: 'Datos Personales', icon: <UserOutlined /> },
   { title: 'Domicilio', icon: <HomeOutlined /> },
   { title: 'Radioafición', icon: <WifiOutlined /> },
-  { title: 'Acceso', icon: <LockOutlined /> },
+  { title: 'Verificación', icon: <SafetyOutlined /> },
 ]
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -56,6 +56,11 @@ export default function RegistroPage({ onClose }: Props) {
   const [done, setDone] = useState(false)
   const [form] = Form.useForm()
   const [extranjero, setExtranjero] = useState(false)
+  // Verificación por código
+  const [codigoEnviado, setCodigoEnviado] = useState(false)
+  const [enviandoCodigo, setEnviandoCodigo] = useState(false)
+  const [codigoInput, setCodigoInput] = useState('')
+  const [verificando, setVerificando] = useState(false)
 
   const next = async () => {
     try {
@@ -72,75 +77,83 @@ export default function RegistroPage({ onClose }: Props) {
   const getFieldsForStep = (step: number): string[] => {
     switch (step) {
       case 0: return ['tipo_membresia']
-      case 1: return ['nombre','primer_apellido','segundo_apellido','fecha_nacimiento','genero','email','telefono']
-      case 2: return ['calle','numero_ext','colonia','municipio','ciudad','estado','codigo_postal','pais']
+      case 1: return ['nombre','primer_apellido','fecha_nacimiento','genero','email','telefono']
+      case 2: return ['calle','numero_ext','colonia','municipio','ciudad','estado','codigo_postal']
       case 3:
-        if (tipo === 'swl') return ['swl_id','como_entero']
+        if (tipo === 'swl') return []
         if (tipo === 'extranjero') return ['indicativo','pais_origen','tipo_licencia_ext']
         return ['indicativo','tipo_licencia','numero_licencia']
-      case 4: return ['username','password','confirmar_password','acepta_terminos']
+      case 4: return ['acepta_terminos']
       default: return []
     }
   }
 
-  const handleSubmit = async () => {
-    try {
-      await form.validateFields()
-    } catch { return }
-
-    setLoading(true)
+  const handleEnviarCodigo = async () => {
+    try { await form.validateFields(['acepta_terminos']) } catch { return }
+    setEnviandoCodigo(true)
     setError(null)
+    const values = form.getFieldsValue(true)
+    const payload = {
+      tipo_membresia:  values.tipo_membresia,
+      nombre:          values.nombre,
+      primer_apellido: values.primer_apellido,
+      segundo_apellido:values.segundo_apellido ?? '',
+      fecha_nacimiento:values.fecha_nacimiento?.format('YYYY-MM-DD'),
+      genero:          values.genero,
+      email:           values.email,
+      telefono:        values.telefono ?? '',
+      calle:           values.calle,
+      numero_ext:      values.numero_ext,
+      numero_int:      values.numero_int ?? '',
+      colonia:         values.colonia,
+      municipio:       values.municipio,
+      ciudad:          values.ciudad,
+      estado:          values.estado,
+      codigo_postal:   values.codigo_postal,
+      pais:            values.pais ?? 'México',
+      indicativo:      values.indicativo ?? '',
+      tipo_licencia:   values.tipo_licencia ?? values.tipo_licencia_ext ?? '',
+      numero_licencia: values.numero_licencia ?? '',
+      pais_origen:     values.pais_origen ?? '',
+      swl_id:          values.swl_id ?? '',
+      acepta_boletin:  values.acepta_boletin ?? false,
+    }
     try {
-      const values = form.getFieldsValue(true)
-      const payload = {
-        tipo_membresia:     values.tipo_membresia,
-        nombre:             values.nombre,
-        primer_apellido:    values.primer_apellido,
-        segundo_apellido:   values.segundo_apellido ?? '',
-        fecha_nacimiento:   values.fecha_nacimiento?.format('YYYY-MM-DD'),
-        genero:             values.genero,
-        email:              values.email,
-        telefono:           values.telefono ?? '',
-        // Domicilio
-        calle:              values.calle,
-        numero_ext:         values.numero_ext,
-        numero_int:         values.numero_int ?? '',
-        colonia:            values.colonia,
-        municipio:          values.municipio,
-        ciudad:             values.ciudad,
-        estado:             values.estado,
-        codigo_postal:      values.codigo_postal,
-        pais:               values.pais ?? 'México',
-        // Radioafición
-        indicativo:         values.indicativo ?? '',
-        tipo_licencia:      values.tipo_licencia ?? values.tipo_licencia_ext ?? '',
-        numero_licencia:    values.numero_licencia ?? '',
-        pais_origen:        values.pais_origen ?? '',
-        swl_id:             values.swl_id ?? '',
-        // Acceso
-        username:           values.username,
-        password:           values.password,
-        // Meta
-        pre_registro:       true,
-      }
-
-      const res = await fetch(`${EQMS_URL}/api/auth/registro`, {
+      const res = await fetch(`${EQMS_URL}/api/auth/pre-registro`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        setError(data?.detail ?? 'Error al registrar. Intenta de nuevo.')
-        return
-      }
-
-      setDone(true)
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) { setError(data?.detail ?? 'Error al enviar. Intenta de nuevo.'); return }
+      setCodigoEnviado(true)
     } catch {
       setError('No se pudo conectar con el portal. Intenta más tarde.')
     } finally {
-      setLoading(false)
+      setEnviandoCodigo(false)
+    }
+  }
+
+  const handleVerificarCodigo = async () => {
+    if (!codigoInput || codigoInput.length < 6) {
+      setError('Ingresa el código de 6 dígitos'); return
+    }
+    setVerificando(true)
+    setError(null)
+    try {
+      const email = form.getFieldValue('email')
+      const res = await fetch(`${EQMS_URL}/api/auth/verificar-registro`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, codigo: codigoInput }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) { setError(data?.detail ?? 'Código incorrecto'); return }
+      setDone(true)
+    } catch {
+      setError('No se pudo conectar. Intenta más tarde.')
+    } finally {
+      setVerificando(false)
     }
   }
 
@@ -150,8 +163,8 @@ export default function RegistroPage({ onClose }: Props) {
         <Result
           status="success"
           icon={<CheckCircleOutlined style={{ color: FMRE_BLUE }} />}
-          title="¡Pre-registro enviado!"
-          subTitle="Tu solicitud ha sido recibida. Un administrador la revisará y recibirás un correo de confirmación con los próximos pasos para completar tu afiliación."
+          title="¡Cuenta creada exitosamente!"
+          subTitle="Tu correo ha sido verificado y tu cuenta fue creada. Revisa tu bandeja de entrada — recibirás un correo con tu contraseña temporal para acceder al portal. Tu membresía será activada al validarse tus documentos."
           extra={
             <Button type="primary" onClick={onClose}
               style={{ background: FMRE_BLUE, borderColor: FMRE_BLUE }}>
@@ -453,80 +466,89 @@ export default function RegistroPage({ onClose }: Props) {
               </>
             )}
 
-            {/* ── PASO 4: Acceso ── */}
+            {/* ── PASO 4: Verificación por correo ── */}
             {current === 4 && (
               <>
-                <h2 style={{ color: FMRE_DARK, fontWeight: 800, marginBottom: 8 }}>Datos de acceso al portal</h2>
-                <p style={{ color: '#666', marginBottom: 24 }}>
-                  Crea tu usuario y contraseña para acceder al portal de la FMRE.
-                </p>
-                <Row gutter={12}>
-                  <Col xs={24} sm={12}>
-                    <Form.Item label="Nombre de usuario" name="username"
-                      rules={[{ required: true, message: 'Requerido' },
-                        { min: 4, message: 'Mínimo 4 caracteres' },
-                        { pattern: /^[a-z0-9_]+$/i, message: 'Solo letras, números y guión bajo' }]}
-                      extra={tipo !== 'swl' ? 'Sugerencia: usa tu indicativo' : undefined}>
-                      <Input prefix={<UserOutlined style={{ color: '#bbb' }} />}
-                        placeholder={tipo === 'radioaficionado' ? 'Ej. xe2xxx' : 'Ej. juangarcia'}
-                        style={{ textTransform: 'lowercase' }}
-                        onChange={e => form.setFieldValue('username', e.target.value.toLowerCase())} />
-                    </Form.Item>
-                  </Col>
-                  <Col xs={24} sm={12}>
-                    <Form.Item label="Correo electrónico" shouldUpdate noStyle>
-                      {() => (
-                        <Form.Item label="Confirmar correo">
-                          <Input value={form.getFieldValue('email')} readOnly
-                            style={{ background: '#f5f5f5', color: '#666' }} />
-                        </Form.Item>
-                      )}
-                    </Form.Item>
-                  </Col>
-                  <Col xs={24} sm={12}>
-                    <Form.Item label="Contraseña" name="password"
-                      rules={[{ required: true, message: 'Requerido' },
-                        { min: 8, message: 'Mínimo 8 caracteres' }]}>
-                      <Input.Password prefix={<LockOutlined style={{ color: '#bbb' }} />}
-                        placeholder="Mínimo 8 caracteres" />
-                    </Form.Item>
-                  </Col>
-                  <Col xs={24} sm={12}>
-                    <Form.Item label="Confirmar contraseña" name="confirmar_password"
-                      dependencies={['password']}
-                      rules={[{ required: true, message: 'Requerido' },
-                        ({ getFieldValue }) => ({
-                          validator(_, value) {
-                            if (!value || getFieldValue('password') === value) return Promise.resolve()
-                            return Promise.reject('Las contraseñas no coinciden')
-                          },
-                        })]}>
-                      <Input.Password prefix={<LockOutlined style={{ color: '#bbb' }} />}
-                        placeholder="Repite la contraseña" />
-                    </Form.Item>
-                  </Col>
-                </Row>
+                <h2 style={{ color: FMRE_DARK, fontWeight: 800, marginBottom: 8 }}>
+                  Confirma tu correo y acepta los términos
+                </h2>
 
                 <Divider />
 
                 <Form.Item name="acepta_terminos" valuePropName="checked"
-                  rules={[{ validator: (_, v) => v ? Promise.resolve() : Promise.reject('Debes aceptar los términos') }]}>
-                  <Checkbox>
+                  rules={[{ validator: (_, v) => v ? Promise.resolve() : Promise.reject('Debes aceptar los términos para continuar') }]}>
+                  <Checkbox style={{ fontSize: 14 }}>
                     Acepto que mis datos sean utilizados por la FMRE para la gestión de mi membresía,
-                    en cumplimiento con la Ley Federal de Protección de Datos Personales.
+                    en cumplimiento con la <strong>Ley Federal de Protección de Datos Personales.</strong>
                   </Checkbox>
                 </Form.Item>
                 <Form.Item name="acepta_boletin" valuePropName="checked">
-                  <Checkbox>
-                    Deseo recibir el Boletín Dominical de la FMRE en mi correo electrónico.
+                  <Checkbox style={{ fontSize: 14 }}>
+                    Deseo recibir el <strong>Boletín Dominical de la FMRE</strong> en mi correo electrónico.
                   </Checkbox>
                 </Form.Item>
 
-                <div style={{ background: '#fffbe6', border: '1px solid #ffe58f', borderRadius: 8, padding: '12px 16px', marginTop: 8 }}>
+                <Divider />
+
+                {/* Envío de código */}
+                {!codigoEnviado ? (
+                  <div style={{ textAlign: 'center', padding: '16px 0' }}>
+                    <div style={{ fontSize: 48, marginBottom: 12 }}>📧</div>
+                    <p style={{ color: '#555', marginBottom: 8 }}>
+                      Enviaremos un <strong>código de 6 dígitos</strong> a:
+                    </p>
+                    <div style={{ background: '#f0f5ff', border: '1px solid #adc6ff', borderRadius: 8,
+                      padding: '10px 20px', display: 'inline-block', marginBottom: 20 }}>
+                      <span style={{ color: FMRE_BLUE, fontWeight: 700, fontSize: 16 }}>
+                        {form.getFieldValue('email')}
+                      </span>
+                    </div>
+                    <br />
+                    <Button type="primary" size="large" icon={<SendOutlined />}
+                      loading={enviandoCodigo} onClick={handleEnviarCodigo}
+                      style={{ background: FMRE_BLUE, borderColor: FMRE_BLUE, minWidth: 220 }}>
+                      Enviar código de verificación
+                    </Button>
+                  </div>
+                ) : (
+                  <div style={{ textAlign: 'center', padding: '8px 0' }}>
+                    <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 32, marginBottom: 8, display: 'block' }} />
+                    <p style={{ color: '#555', marginBottom: 4 }}>
+                      Código enviado a <strong>{form.getFieldValue('email')}</strong>
+                    </p>
+                    <p style={{ color: '#888', fontSize: 13, marginBottom: 20 }}>
+                      Revisa tu bandeja de entrada (y spam). Válido por 15 minutos.
+                    </p>
+                    <Input
+                      size="large"
+                      prefix={<SafetyOutlined style={{ color: FMRE_BLUE }} />}
+                      placeholder="Código de 6 dígitos"
+                      value={codigoInput}
+                      onChange={e => setCodigoInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      maxLength={6}
+                      style={{ maxWidth: 260, textAlign: 'center', fontSize: 24,
+                        letterSpacing: 8, fontWeight: 700, marginBottom: 16 }}
+                    />
+                    <br />
+                    <Button type="primary" size="large" loading={verificando}
+                      onClick={handleVerificarCodigo} disabled={codigoInput.length < 6}
+                      style={{ background: '#389e0d', borderColor: '#389e0d', minWidth: 220 }}>
+                      Verificar y crear cuenta
+                    </Button>
+                    <br />
+                    <Button type="link" size="small" style={{ marginTop: 12 }}
+                      onClick={() => { setCodigoEnviado(false); setCodigoInput('') }}>
+                      Reenviar código
+                    </Button>
+                  </div>
+                )}
+
+                <div style={{ background: '#fffbe6', border: '1px solid #ffe58f', borderRadius: 8,
+                  padding: '12px 16px', marginTop: 20 }}>
                   <p style={{ margin: 0, fontSize: 13, color: '#874d00' }}>
-                    <strong>Nota:</strong> Este es un pre-registro. Tu cuenta será activada una vez que un
-                    administrador valide tus documentos y confirme el pago de la membresía.
-                    Recibirás un correo de confirmación en <strong>{form.getFieldValue('email') || 'tu correo'}</strong>.
+                    <strong>Nota:</strong> Al verificar tu correo se creará tu cuenta con una
+                    <strong> contraseña temporal</strong> que recibirás por email. Tu membresía
+                    será activada una vez que un administrador valide tus documentos y el pago.
                   </p>
                 </div>
               </>
@@ -546,11 +568,7 @@ export default function RegistroPage({ onClose }: Props) {
                   icon={<ArrowRightOutlined />} iconPosition="end">
                   Siguiente
                 </Button>
-              : <Button type="primary" size="large" loading={loading} onClick={handleSubmit}
-                  style={{ background: '#389e0d', borderColor: '#389e0d' }}
-                  icon={<GlobalOutlined />}>
-                  Enviar Pre-registro
-                </Button>
+              : <div style={{ width: 160 }} /> /* botones de acción están dentro del paso 4 */
             }
           </div>
 
