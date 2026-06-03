@@ -26,6 +26,14 @@ const FUENTES = [
   { label: 'Tahoma',          value: 'Tahoma, sans-serif' },
 ]
 
+const FUENTE_OPS = FUENTES.map(f => ({
+  value: f.value,
+  label: <span style={{ fontFamily: f.value }}>{f.label}</span>,
+}))
+
+const TAMANOS = ['8','9','10','11','12','13','14','16','18','20','22','24','28','32','36','48']
+const TAMANO_OPS = TAMANOS.map(t => ({ value: t, label: `${t}px` }))
+
 const TIPOS: { label: string; value: string; color: string }[] = [
   { label: 'Estática',  value: 'estatica',  color: 'blue'   },
   { label: 'Dinámica',  value: 'dinamica',  color: 'green'  },
@@ -40,8 +48,10 @@ interface Plantilla {
 }
 
 interface Seccion {
-  id: number; plantilla_id: number; nombre: string
-  tipo: string; fuente: string; contenido: string; orden: number
+  id: number; plantilla_id: number; nombre: string; tipo: string
+  fuente_titulo: string; tamano_titulo: string
+  fuente_cuerpo: string; tamano_cuerpo: string
+  contenido: string; orden: number
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -90,19 +100,26 @@ function PlantillaModal({ open, plantilla, onOk, onCancel }: {
 
 // ── Modal Sección ─────────────────────────────────────────────────────────────
 
+const DEFAULTS_SECCION = {
+  nombre: '', tipo: 'dinamica',
+  fuente_titulo: FUENTES[0].value, tamano_titulo: '16',
+  fuente_cuerpo: FUENTES[0].value, tamano_cuerpo: '12',
+  contenido: '',
+}
+
 function SeccionModal({ open, seccion, onOk, onCancel }: {
   open: boolean; seccion: Seccion | null
   onOk: (values: Partial<Seccion>) => Promise<void>
   onCancel: () => void
 }) {
-  const [form] = Form.useForm()
+  const [form]    = Form.useForm()
   const [loading, setLoading] = useState(false)
-  const fuente = Form.useWatch('fuente', form)
+  const fuenteTitulo = Form.useWatch('fuente_titulo', form)
+  const tamanoTitulo = Form.useWatch('tamano_titulo', form)
+  const fuenteCuerpo = Form.useWatch('fuente_cuerpo', form)
 
   useEffect(() => {
-    if (open) form.setFieldsValue(seccion ?? {
-      nombre: '', tipo: 'dinamica', fuente: FUENTES[0].value, contenido: '',
-    })
+    if (open) form.setFieldsValue(seccion ?? DEFAULTS_SECCION)
   }, [open, seccion, form])
 
   const handleOk = async () => {
@@ -113,37 +130,73 @@ function SeccionModal({ open, seccion, onOk, onCancel }: {
     } finally { setLoading(false) }
   }
 
+  const tipoOps = TIPOS.map(t => ({
+    value: t.value,
+    label: <Tag color={t.color}>{t.label}</Tag>,
+  }))
+
   return (
     <Modal open={open} title={seccion ? 'Editar Sección' : 'Nueva Sección'}
       onOk={handleOk} onCancel={onCancel} okText="Guardar"
-      confirmLoading={loading} width={600}>
+      confirmLoading={loading} width={680}>
       <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
-        <Form.Item name="nombre" label="Nombre de la sección" rules={[{ required: true }]}>
-          <Input placeholder="Ej. Editorial, Noticias, Agenda..." />
-        </Form.Item>
 
+        {/* Nombre + Tipo */}
         <div style={{ display: 'flex', gap: 12 }}>
-          <Form.Item name="tipo" label="Tipo" rules={[{ required: true }]} style={{ flex: 1 }}>
-            <Select options={TIPOS.map(t => ({
-              value: t.value,
-              label: <Tag color={t.color}>{t.label}</Tag>,
-            }))} />
+          <Form.Item name="nombre" label="Nombre de la sección"
+            rules={[{ required: true }]} style={{ flex: 2 }}>
+            <Input placeholder="Ej. Editorial, Noticias, Agenda..." />
           </Form.Item>
-          <Form.Item name="fuente" label="Tipo de letra" rules={[{ required: true }]} style={{ flex: 2 }}>
-            <Select options={FUENTES.map(f => ({
-              value: f.value,
-              label: <span style={{ fontFamily: f.value }}>{f.label}</span>,
-            }))} />
+          <Form.Item name="tipo" label="Tipo" rules={[{ required: true }]} style={{ flex: 1 }}>
+            <Select options={tipoOps} />
           </Form.Item>
         </div>
 
+        <Divider orientation="left" orientationMargin={0} style={{ fontSize: 12, color: '#888', margin: '4px 0 12px' }}>
+          Tipografía del Nombre de Sección
+        </Divider>
+
+        {/* Tipografía del título */}
+        <div style={{ display: 'flex', gap: 12, marginBottom: 4 }}>
+          <Form.Item name="fuente_titulo" label="Fuente" rules={[{ required: true }]} style={{ flex: 3 }}>
+            <Select options={FUENTE_OPS} />
+          </Form.Item>
+          <Form.Item name="tamano_titulo" label="Tamaño" rules={[{ required: true }]} style={{ flex: 1 }}>
+            <Select options={TAMANO_OPS} />
+          </Form.Item>
+        </div>
+
+        {/* Preview del título */}
+        <div style={{
+          background: '#f5f7ff', border: '1px solid #e0e8ff', borderRadius: 6,
+          padding: '8px 12px', marginBottom: 16,
+          fontFamily: fuenteTitulo, fontSize: `${tamanoTitulo || 16}px`, fontWeight: 600, color: '#1A569E',
+        }}>
+          Vista previa: Nombre de la sección
+        </div>
+
+        <Divider orientation="left" orientationMargin={0} style={{ fontSize: 12, color: '#888', margin: '4px 0 12px' }}>
+          Tipografía del Cuerpo
+        </Divider>
+
+        {/* Tipografía del cuerpo */}
+        <div style={{ display: 'flex', gap: 12 }}>
+          <Form.Item name="fuente_cuerpo" label="Fuente" rules={[{ required: true }]} style={{ flex: 3 }}>
+            <Select options={FUENTE_OPS} />
+          </Form.Item>
+          <Form.Item name="tamano_cuerpo" label="Tamaño" rules={[{ required: true }]} style={{ flex: 1 }}>
+            <Select options={TAMANO_OPS} />
+          </Form.Item>
+        </div>
+
+        {/* Contenido predeterminado */}
         <Form.Item name="contenido" label="Contenido predeterminado">
           <RichTextEditor
             value={form.getFieldValue('contenido')}
             onChange={html => form.setFieldValue('contenido', html)}
-            placeholder="Contenido predeterminado (opcional)"
-            fontFamily={fuente}
-            minHeight={150}
+            placeholder="Contenido predeterminado para esta sección (opcional)"
+            fontFamily={fuenteCuerpo}
+            minHeight={130}
           />
         </Form.Item>
       </Form>

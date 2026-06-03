@@ -71,8 +71,6 @@ function Btn({ title, active, disabled, onClick, children }: {
 
 function Sep() { return <div className="rte-toolbar-sep" /> }
 
-const TAMANOS_TEXTO = ['8','9','10','11','12','14','16','18','20','22','24','28','32','36','48','72']
-
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 interface Props {
@@ -130,7 +128,6 @@ export default function RichTextEditor({ value, onChange, placeholder = 'Escribe
     : editor.isActive('heading', { level: 2 }) ? '2'
     : editor.isActive('heading', { level: 3 }) ? '3' : '0'
 
-  const currentFontSize = (editor.getAttributes('textStyle').fontSize ?? '').replace('px', '') || ''
 
   const insertLink = () => {
     if (!linkUrl) return
@@ -179,18 +176,6 @@ export default function RichTextEditor({ value, onChange, placeholder = 'Escribe
               <option value="1">Título 1</option>
               <option value="2">Título 2</option>
               <option value="3">Título 3</option>
-            </select>
-          </Tooltip>
-          <Tooltip title="Tamaño de texto" mouseEnterDelay={0.5}>
-            <select className="rte-select" style={{ width: 58 }}
-              value={currentFontSize}
-              onChange={e => {
-                const v = e.target.value
-                if (v) editor.chain().focus().setFontSize(v + 'px').run()
-                else editor.chain().focus().unsetFontSize().run()
-              }}>
-              <option value="">—</option>
-              {TAMANOS_TEXTO.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </Tooltip>
         </div>

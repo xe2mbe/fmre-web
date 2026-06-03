@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  Button, Card, Input, Select, Divider, Empty, Tooltip, Typography, Space, DatePicker,
+  Button, Card, Input, Divider, Empty, Tooltip, Typography, Space, DatePicker,
 } from 'antd'
 import {
   PlusOutlined, DeleteOutlined, ArrowUpOutlined, ArrowDownOutlined,
@@ -14,37 +14,13 @@ const { Title, Text } = Typography
 const FMRE_DARK = '#0D2E5F'
 const FMRE_BLUE = '#1A569E'
 
-// ── Catálogos ─────────────────────────────────────────────────────────────────
-
-const FUENTES = [
-  { label: 'Arial',           value: 'Arial, sans-serif' },
-  { label: 'Times New Roman', value: '"Times New Roman", serif' },
-  { label: 'Georgia',         value: 'Georgia, serif' },
-  { label: 'Courier New',     value: '"Courier New", monospace' },
-  { label: 'Verdana',         value: 'Verdana, sans-serif' },
-  { label: 'Trebuchet MS',    value: '"Trebuchet MS", sans-serif' },
-  { label: 'Palatino',        value: '"Palatino Linotype", serif' },
-  { label: 'Tahoma',          value: 'Tahoma, sans-serif' },
-]
-
-const TAMANOS = ['8','9','10','11','12','14','16','18','20','22','24','28','32','36','48','72']
-
-const FUENTE_OPS = FUENTES.map(f => ({
-  value: f.value,
-  label: <span style={{ fontFamily: f.value }}>{f.label}</span>,
-}))
-
-const TAMANO_OPS = TAMANOS.map(t => ({ value: t, label: `${t}px` }))
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
 interface Seccion {
-  id:             string
-  titulo:         string
-  fuente_titulo:  string
-  tamano_titulo:  string
-  fuente:         string
-  contenido:      string
+  id:       string
+  titulo:   string
+  contenido: string
 }
 
 interface Boletin {
@@ -68,12 +44,6 @@ function SeccionCard({
   onMoveUp:   (index: number) => void
   onMoveDown: (index: number) => void
 }) {
-  const tituloStyle: React.CSSProperties = {
-    fontFamily: seccion.fuente_titulo,
-    fontSize:   seccion.tamano_titulo ? `${seccion.tamano_titulo}px` : undefined,
-    fontWeight: 600,
-  }
-
   return (
     <Card
       size="small"
@@ -100,62 +70,18 @@ function SeccionCard({
         </Space>
       }
     >
-      {/* ── Título ── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr auto auto',
-        gap: 8, alignItems: 'center', marginBottom: 10,
-        background: '#fafafa', border: '1px solid #f0f0f0',
-        borderRadius: 8, padding: '8px 10px',
-      }}>
-        <div>
-          <Text type="secondary" style={{ fontSize: 11 }}>Título de la sección</Text>
-          <Input
-            placeholder="Ej. Editorial, Noticias..."
-            value={seccion.titulo}
-            onChange={e => onChange(seccion.id, 'titulo', e.target.value)}
-            style={tituloStyle}
-            size="small"
-            variant="borderless"
-          />
-        </div>
-        <div>
-          <Text type="secondary" style={{ fontSize: 11 }}>Fuente del título</Text>
-          <Select
-            value={seccion.fuente_titulo}
-            onChange={val => onChange(seccion.id, 'fuente_titulo', val)}
-            size="small" style={{ width: 160, display: 'block', marginTop: 2 }}
-            options={FUENTE_OPS}
-          />
-        </div>
-        <div>
-          <Text type="secondary" style={{ fontSize: 11 }}>Tamaño</Text>
-          <Select
-            value={seccion.tamano_titulo}
-            onChange={val => onChange(seccion.id, 'tamano_titulo', val)}
-            size="small" style={{ width: 80, display: 'block', marginTop: 2 }}
-            options={TAMANO_OPS}
-          />
-        </div>
-      </div>
-
-      {/* ── Contenido ── */}
-      <div style={{ marginBottom: 8 }}>
-        <Text type="secondary" style={{ fontSize: 11 }}>
-          Fuente del contenido
-        </Text>
-        <Select
-          value={seccion.fuente}
-          onChange={val => onChange(seccion.id, 'fuente', val)}
-          size="small" style={{ width: '100%', marginTop: 2 }}
-          options={FUENTE_OPS}
-        />
-      </div>
+      <Input
+        placeholder="Nombre de la sección (ej. Editorial, Noticias...)"
+        value={seccion.titulo}
+        onChange={e => onChange(seccion.id, 'titulo', e.target.value)}
+        variant="filled"
+        size="small"
+        style={{ marginBottom: 10, fontWeight: 600 }}
+      />
       <RichTextEditor
         value={seccion.contenido}
         onChange={html => onChange(seccion.id, 'contenido', html)}
         placeholder="Escribe el contenido de esta sección..."
-        fontFamily={seccion.fuente}
         minHeight={180}
       />
     </Card>
@@ -238,12 +164,9 @@ export default function BoletinesPage() {
     setBoletin(b => ({
       ...b,
       secciones: [...b.secciones, {
-        id:            crypto.randomUUID(),
-        titulo:        '',
-        fuente_titulo: FUENTES[0].value,
-        tamano_titulo: '16',
-        fuente:        FUENTES[0].value,
-        contenido:     '',
+        id:       crypto.randomUUID(),
+        titulo:   '',
+        contenido: '',
       }],
     }))
 

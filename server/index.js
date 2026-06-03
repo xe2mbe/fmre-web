@@ -25,17 +25,29 @@ db.exec(`
   );
 
   CREATE TABLE IF NOT EXISTS secciones_plantilla (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    plantilla_id INTEGER NOT NULL REFERENCES plantillas(id) ON DELETE CASCADE,
-    nombre       TEXT    NOT NULL,
-    tipo         TEXT    NOT NULL CHECK(tipo IN ('estatica','dinamica','temporal')),
-    fuente       TEXT    NOT NULL DEFAULT 'Arial, sans-serif',
-    contenido    TEXT    NOT NULL DEFAULT '',
-    orden        INTEGER NOT NULL DEFAULT 0,
-    created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    plantilla_id   INTEGER NOT NULL REFERENCES plantillas(id) ON DELETE CASCADE,
+    nombre         TEXT    NOT NULL,
+    tipo           TEXT    NOT NULL CHECK(tipo IN ('estatica','dinamica','temporal')),
+    fuente_titulo  TEXT    NOT NULL DEFAULT 'Arial, sans-serif',
+    tamano_titulo  TEXT    NOT NULL DEFAULT '16',
+    fuente_cuerpo  TEXT    NOT NULL DEFAULT 'Arial, sans-serif',
+    tamano_cuerpo  TEXT    NOT NULL DEFAULT '12',
+    contenido      TEXT    NOT NULL DEFAULT '',
+    orden          INTEGER NOT NULL DEFAULT 0,
+    created_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at     DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 `)
+
+// Migración: agregar columnas nuevas si la tabla ya existía con esquema viejo
+;['fuente_titulo TEXT NOT NULL DEFAULT \'Arial, sans-serif\'',
+  'tamano_titulo TEXT NOT NULL DEFAULT \'16\'',
+  'fuente_cuerpo TEXT NOT NULL DEFAULT \'Arial, sans-serif\'',
+  'tamano_cuerpo TEXT NOT NULL DEFAULT \'12\'',
+].forEach(col => {
+  try { db.exec(`ALTER TABLE secciones_plantilla ADD COLUMN ${col}`) } catch {}
+})
 
 app.use(cors())
 app.use(express.json())
@@ -298,7 +310,12 @@ app.get('/api/plantillas/:id/secciones', (req, res) => {
 })
 
 app.post('/api/plantillas/:id/secciones', (req, res) => {
-  const { nombre, tipo, fuente = 'Arial, sans-serif', contenido = '' } = req.body
+  const {
+    nombre, tipo,
+    fuente_titulo = 'Arial, sans-serif', tamano_titulo = '16',
+    fuente_cuerpo = 'Arial, sans-serif', tamano_cuerpo = '12',
+    contenido = '',
+  } = req.body
   if (!nombre?.trim()) return res.status(400).json({ detail: 'El nombre es requerido' })
   if (!['estatica', 'dinamica', 'temporal'].includes(tipo))
     return res.status(400).json({ detail: 'Tipo inválido' })
@@ -308,9 +325,10 @@ app.post('/api/plantillas/:id/secciones', (req, res) => {
   ).get(req.params.id).m
 
   const { lastInsertRowid } = db.prepare(`
-    INSERT INTO secciones_plantilla (plantilla_id, nombre, tipo, fuente, contenido, orden)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).run(req.params.id, nombre.trim(), tipo, fuente, contenido, maxOrden + 1)
+    INSERT INTO secciones_plantilla
+      (plantilla_id, nombre, tipo, fuente_titulo, tamano_titulo, fuente_cuerpo, tamano_cuerpo, contenido, orden)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(req.params.id, nombre.trim(), tipo, fuente_titulo, tamano_titulo, fuente_cuerpo, tamano_cuerpo, contenido, maxOrden + 1)
 
   res.status(201).json(
     db.prepare('SELECT * FROM secciones_plantilla WHERE id = ?').get(lastInsertRowid)
@@ -318,16 +336,20 @@ app.post('/api/plantillas/:id/secciones', (req, res) => {
 })
 
 app.put('/api/secciones/:id', (req, res) => {
-  const { nombre, tipo, fuente, contenido } = req.body
+  const { nombre, tipo, fuente_titulo, tamano_titulo, fuente_cuerpo, tamano_cuerpo, contenido } = req.body
   if (!nombre?.trim()) return res.status(400).json({ detail: 'El nombre es requerido' })
   if (!['estatica', 'dinamica', 'temporal'].includes(tipo))
     return res.status(400).json({ detail: 'Tipo inválido' })
 
   const { changes } = db.prepare(`
     UPDATE secciones_plantilla
-    SET nombre=?, tipo=?, fuente=?, contenido=?, updated_at=CURRENT_TIMESTAMP
+    SET nombre=?, tipo=?, fuente_titulo=?, tamano_titulo=?, fuente_cuerpo=?, tamano_cuerpo=?,
+        contenido=?, updated_at=CURRENT_TIMESTAMP
     WHERE id=?
-  `).run(nombre.trim(), tipo, fuente, contenido ?? '', req.params.id)
+  `).run(nombre.trim(), tipo,
+    fuente_titulo ?? 'Arial, sans-serif', tamano_titulo ?? '16',
+    fuente_cuerpo ?? 'Arial, sans-serif', tamano_cuerpo ?? '12',
+    contenido ?? '', req.params.id)
 
   if (!changes) return res.status(404).json({ detail: 'Sección no encontrada' })
   res.json(db.prepare('SELECT * FROM secciones_plantilla WHERE id = ?').get(req.params.id))
