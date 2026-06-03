@@ -13,11 +13,11 @@ services:
       - fmre-api
 
   fmre-api:
-    image: node:22-alpine
-    working_dir: /app
-    command: sh -c "npm install && npm run dev"
+    build:
+      context: ./server
     ports:
       - "3001:3001"
     volumes:
       - ./server:/app
+      - /app/node_modules
     env_file: ./server/.env

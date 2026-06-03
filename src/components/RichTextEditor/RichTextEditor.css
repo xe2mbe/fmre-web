@@ -1,0 +1,205 @@
+/* ── Toolbar ─────────────────────────────────────────────────────────────── */
+.rte-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 6px 8px;
+  background: #f5f6f7;
+  border: 1px solid #d9d9d9;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+}
+
+.rte-toolbar-group {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
+.rte-toolbar-sep {
+  width: 1px;
+  height: 22px;
+  background: #d9d9d9;
+  margin: 0 4px;
+}
+
+.rte-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  color: #333;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.15s;
+  line-height: 1;
+}
+
+.rte-btn:hover {
+  background: #e6e8ea;
+  border-color: #c9cccf;
+}
+
+.rte-btn.active {
+  background: #1A569E;
+  color: white;
+  border-color: #1A569E;
+}
+
+.rte-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.rte-select {
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  background: white;
+  font-size: 12px;
+  cursor: pointer;
+  color: #333;
+  outline: none;
+}
+
+.rte-select:hover {
+  border-color: #1A569E;
+}
+
+.rte-color-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  border: 1px solid #d9d9d9;
+  cursor: pointer;
+  padding: 2px;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.rte-color-btn:hover {
+  border-color: #1A569E;
+}
+
+/* ── Editor content ──────────────────────────────────────────────────────── */
+.rte-content {
+  border: 1px solid #d9d9d9;
+  border-radius: 0 0 8px 8px;
+  min-height: 200px;
+  background: white;
+  transition: border-color 0.2s;
+}
+
+.rte-content:focus-within {
+  border-color: #1A569E;
+  box-shadow: 0 0 0 2px rgba(26, 86, 158, 0.1);
+}
+
+.rte-content .ProseMirror {
+  padding: 14px 16px;
+  min-height: 200px;
+  outline: none;
+  line-height: 1.75;
+  color: #222;
+}
+
+.rte-content .ProseMirror p { margin: 0 0 8px; }
+.rte-content .ProseMirror p:last-child { margin-bottom: 0; }
+
+.rte-content .ProseMirror h1 { font-size: 2em;   font-weight: 800; margin: 0 0 12px; color: #0D2E5F; }
+.rte-content .ProseMirror h2 { font-size: 1.5em; font-weight: 700; margin: 0 0 10px; color: #0D2E5F; }
+.rte-content .ProseMirror h3 { font-size: 1.2em; font-weight: 700; margin: 0 0 8px;  color: #0D2E5F; }
+
+.rte-content .ProseMirror ul  { padding-left: 24px; margin: 0 0 8px; list-style: disc; }
+.rte-content .ProseMirror ol  { padding-left: 24px; margin: 0 0 8px; list-style: decimal; }
+.rte-content .ProseMirror li  { margin-bottom: 4px; }
+.rte-content .ProseMirror li ul, .rte-content .ProseMirror li ol { margin-top: 4px; }
+
+.rte-content .ProseMirror blockquote {
+  border-left: 4px solid #1A569E;
+  padding-left: 16px;
+  margin: 8px 0;
+  color: #666;
+  font-style: italic;
+}
+
+.rte-content .ProseMirror code {
+  background: #f0f0f0;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9em;
+}
+
+.rte-content .ProseMirror pre {
+  background: #1e1e1e;
+  color: #d4d4d4;
+  padding: 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+.rte-content .ProseMirror a {
+  color: #1A569E;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.rte-content .ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin: 8px 0;
+}
+
+.rte-content .ProseMirror hr {
+  border: none;
+  border-top: 2px solid #e0e0e0;
+  margin: 16px 0;
+}
+
+/* Highlight */
+.rte-content .ProseMirror mark { background: #ffe58f; padding: 0 2px; border-radius: 2px; }
+
+/* Tables */
+.rte-content .ProseMirror table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 8px 0;
+}
+.rte-content .ProseMirror td,
+.rte-content .ProseMirror th {
+  border: 1px solid #d9d9d9;
+  padding: 8px 12px;
+  text-align: left;
+}
+.rte-content .ProseMirror th {
+  background: #f5f6f7;
+  font-weight: 700;
+}
+.rte-content .ProseMirror .selectedCell { background: #e6f0ff; }
+
+/* Placeholder */
+.rte-content .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #bbb;
+  pointer-events: none;
+  height: 0;
+}
+
+/* Sub/Sup */
+.rte-content .ProseMirror sub { vertical-align: sub; font-size: smaller; }
+.rte-content .ProseMirror sup { vertical-align: super; font-size: smaller; }

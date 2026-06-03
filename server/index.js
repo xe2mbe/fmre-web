@@ -1,9 +1,41 @@
-const express = require('express')
-const cors    = require('cors')
+const express    = require('express')
+const cors       = require('cors')
 const nodemailer = require('nodemailer')
+const jwt        = require('jsonwebtoken')
+const crypto     = require('crypto')
+const Database   = require('better-sqlite3')
+const path       = require('path')
 
 const app  = express()
 const PORT = process.env.PORT || 3001
+
+// ── Base de datos SQLite ──────────────────────────────────────────────────────
+
+const db = new Database(path.join(__dirname, 'fmre.db'))
+db.pragma('journal_mode = WAL')
+db.pragma('foreign_keys = ON')
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS plantillas (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre      TEXT    NOT NULL,
+    descripcion TEXT    NOT NULL DEFAULT '',
+    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS secciones_plantilla (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    plantilla_id INTEGER NOT NULL REFERENCES plantillas(id) ON DELETE CASCADE,
+    nombre       TEXT    NOT NULL,
+    tipo         TEXT    NOT NULL CHECK(tipo IN ('estatica','dinamica','temporal')),
+    fuente       TEXT    NOT NULL DEFAULT 'Arial, sans-serif',
+    contenido    TEXT    NOT NULL DEFAULT '',
+    orden        INTEGER NOT NULL DEFAULT 0,
+    created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+`)
 
 app.use(cors())
 app.use(express.json())
@@ -169,6 +201,151 @@ app.post('/api/auth/verificar-registro', async (req, res) => {
   return res.json({ ok: true, mensaje: 'Cuenta creada. Revisa tu correo con los datos de acceso.' })
 })
 
+
+// ── Auth — store local ────────────────────────────────────────────────────────
+
+const JWT_SECRET = process.env.JWT_SECRET || 'fmre-secret'
+
+function hashPass(pw) {
+  return crypto.createHash('sha256').update(pw).digest('hex')
+}
+
+// Usuarios en memoria — clave: email en minúsculas
+const USUARIOS = new Map([
+  ['admin@fmre.org', {
+    email:      'admin@fmre.org',
+    nombre:     'Administrador FMRE',
+    rol:        'administrador',
+    indicativo: null,
+    passHash:   hashPass('Admin1234!'),
+  }],
+])
+
+function issueToken(usuario) {
+  const { email, nombre, rol, indicativo } = usuario
+  return jwt.sign({ email, nombre, rol, indicativo }, JWT_SECRET, { expiresIn: '8h' })
+}
+
+app.post('/api/auth/login', (req, res) => {
+  const { email, password } = req.body
+  if (!email || !password)
+    return res.status(400).json({ detail: 'Email y contraseña requeridos' })
+
+  const u = USUARIOS.get(email.toLowerCase().trim())
+  if (!u || u.passHash !== hashPass(password))
+    return res.status(401).json({ detail: 'Credenciales incorrectas' })
+
+  const token = issueToken(u)
+  console.log(`[login] ${email} → ${u.rol}`)
+  return res.json({ token, usuario: { email: u.email, nombre: u.nombre, rol: u.rol, indicativo: u.indicativo } })
+})
+
+app.get('/api/auth/me', (req, res) => {
+  const token = (req.headers.authorization || '').replace('Bearer ', '')
+  if (!token) return res.status(401).json({ detail: 'Sin token' })
+  try {
+    const p = jwt.verify(token, JWT_SECRET)
+    return res.json({ email: p.email, nombre: p.nombre, rol: p.rol, indicativo: p.indicativo })
+  } catch {
+    return res.status(401).json({ detail: 'Token inválido o expirado' })
+  }
+})
+
+// ── Plantillas ────────────────────────────────────────────────────────────────
+
+app.get('/api/plantillas', (req, res) => {
+  const rows = db.prepare(`
+    SELECT p.*, COUNT(s.id) AS total_secciones
+    FROM plantillas p
+    LEFT JOIN secciones_plantilla s ON s.plantilla_id = p.id
+    GROUP BY p.id ORDER BY p.created_at DESC
+  `).all()
+  res.json(rows)
+})
+
+app.post('/api/plantillas', (req, res) => {
+  const { nombre, descripcion = '' } = req.body
+  if (!nombre?.trim()) return res.status(400).json({ detail: 'El nombre es requerido' })
+  const { lastInsertRowid } = db.prepare(
+    'INSERT INTO plantillas (nombre, descripcion) VALUES (?, ?)'
+  ).run(nombre.trim(), descripcion.trim())
+  res.status(201).json(db.prepare('SELECT * FROM plantillas WHERE id = ?').get(lastInsertRowid))
+})
+
+app.put('/api/plantillas/:id', (req, res) => {
+  const { nombre, descripcion = '' } = req.body
+  if (!nombre?.trim()) return res.status(400).json({ detail: 'El nombre es requerido' })
+  const { changes } = db.prepare(
+    'UPDATE plantillas SET nombre=?, descripcion=?, updated_at=CURRENT_TIMESTAMP WHERE id=?'
+  ).run(nombre.trim(), descripcion.trim(), req.params.id)
+  if (!changes) return res.status(404).json({ detail: 'Plantilla no encontrada' })
+  res.json(db.prepare('SELECT * FROM plantillas WHERE id = ?').get(req.params.id))
+})
+
+app.delete('/api/plantillas/:id', (req, res) => {
+  const { changes } = db.prepare('DELETE FROM plantillas WHERE id = ?').run(req.params.id)
+  if (!changes) return res.status(404).json({ detail: 'Plantilla no encontrada' })
+  res.json({ ok: true })
+})
+
+// ── Secciones de plantilla ────────────────────────────────────────────────────
+
+app.get('/api/plantillas/:id/secciones', (req, res) => {
+  const secciones = db.prepare(
+    'SELECT * FROM secciones_plantilla WHERE plantilla_id = ? ORDER BY orden, id'
+  ).all(req.params.id)
+  res.json(secciones)
+})
+
+app.post('/api/plantillas/:id/secciones', (req, res) => {
+  const { nombre, tipo, fuente = 'Arial, sans-serif', contenido = '' } = req.body
+  if (!nombre?.trim()) return res.status(400).json({ detail: 'El nombre es requerido' })
+  if (!['estatica', 'dinamica', 'temporal'].includes(tipo))
+    return res.status(400).json({ detail: 'Tipo inválido' })
+
+  const maxOrden = db.prepare(
+    'SELECT COALESCE(MAX(orden), -1) as m FROM secciones_plantilla WHERE plantilla_id = ?'
+  ).get(req.params.id).m
+
+  const { lastInsertRowid } = db.prepare(`
+    INSERT INTO secciones_plantilla (plantilla_id, nombre, tipo, fuente, contenido, orden)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(req.params.id, nombre.trim(), tipo, fuente, contenido, maxOrden + 1)
+
+  res.status(201).json(
+    db.prepare('SELECT * FROM secciones_plantilla WHERE id = ?').get(lastInsertRowid)
+  )
+})
+
+app.put('/api/secciones/:id', (req, res) => {
+  const { nombre, tipo, fuente, contenido } = req.body
+  if (!nombre?.trim()) return res.status(400).json({ detail: 'El nombre es requerido' })
+  if (!['estatica', 'dinamica', 'temporal'].includes(tipo))
+    return res.status(400).json({ detail: 'Tipo inválido' })
+
+  const { changes } = db.prepare(`
+    UPDATE secciones_plantilla
+    SET nombre=?, tipo=?, fuente=?, contenido=?, updated_at=CURRENT_TIMESTAMP
+    WHERE id=?
+  `).run(nombre.trim(), tipo, fuente, contenido ?? '', req.params.id)
+
+  if (!changes) return res.status(404).json({ detail: 'Sección no encontrada' })
+  res.json(db.prepare('SELECT * FROM secciones_plantilla WHERE id = ?').get(req.params.id))
+})
+
+app.delete('/api/secciones/:id', (req, res) => {
+  const { changes } = db.prepare('DELETE FROM secciones_plantilla WHERE id = ?').run(req.params.id)
+  if (!changes) return res.status(404).json({ detail: 'Sección no encontrada' })
+  res.json({ ok: true })
+})
+
+app.patch('/api/secciones/:id/orden', (req, res) => {
+  const { orden } = req.body
+  db.prepare('UPDATE secciones_plantilla SET orden=? WHERE id=?').run(orden, req.params.id)
+  res.json({ ok: true })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 app.listen(PORT, () => {
   console.log(`fmre-api corriendo en http://localhost:${PORT}`)

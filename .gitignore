@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 server/.env
+server/*.db
+server/*.db-shm
+server/*.db-wal
 
 # Editor directories and files
 .vscode/*
