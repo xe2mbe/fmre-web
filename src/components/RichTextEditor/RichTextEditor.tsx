@@ -3,6 +3,8 @@ import StarterKit from '@tiptap/starter-kit'
 import TextAlign from '@tiptap/extension-text-align'
 import Image from '@tiptap/extension-image'
 import { NodeSelection } from '@tiptap/pm/state'
+import { ReactNodeViewRenderer } from '@tiptap/react'
+import ImageNodeView from './ImageNodeView'
 import { Color } from '@tiptap/extension-color'
 import { TextStyle, FontSize } from '@tiptap/extension-text-style'
 import Underline from '@tiptap/extension-underline'
@@ -129,6 +131,9 @@ export default function RichTextEditor({ value, onChange, placeholder = 'Escribe
             width:  { default: null, renderHTML: a => a.width  ? { width:  a.width  } : {} },
             height: { default: null, renderHTML: a => a.height ? { height: a.height } : {} },
           }
+        },
+        addNodeView() {
+          return ReactNodeViewRenderer(ImageNodeView)
         },
       }).configure({ inline: false, allowBase64: true }),
       Color,
@@ -327,17 +332,9 @@ export default function RichTextEditor({ value, onChange, placeholder = 'Escribe
           <>
             <Sep />
             <div className="rte-toolbar-group" style={{ alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 11, color: '#666', whiteSpace: 'nowrap' }}>Ancho:</span>
-              {['25%','50%','75%','100%'].map(w => (
-                <Tooltip key={w} title={w} mouseEnterDelay={0.5}>
-                  <button className={`rte-btn${selImgWidth === w ? ' active' : ''}`}
-                    style={{ width: 'auto', padding: '0 6px', fontSize: 11 }}
-                    onMouseDown={e => {
-                      e.preventDefault()
-                      editor.chain().focus().updateAttributes('image', { width: w, height: 'auto' }).run()
-                    }}>{w}</button>
-                </Tooltip>
-              ))}
+              <span style={{ fontSize: 11, color: '#888', whiteSpace: 'nowrap' }}>
+                Imagen — arrastra las esquinas para redimensionar
+              </span>
               <Tooltip title="Tamaño original" mouseEnterDelay={0.5}>
                 <button className="rte-btn" style={{ width: 'auto', padding: '0 6px', fontSize: 11 }}
                   onMouseDown={e => {
