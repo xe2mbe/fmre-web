@@ -214,15 +214,30 @@
 /* Column resize handle */
 .rte-content .ProseMirror .column-resize-handle {
   position: absolute;
-  right: -2px;
+  right: -3px;
   top: 0;
   bottom: 0;
-  width: 4px;
+  width: 6px;
   background: #1A569E;
-  pointer-events: none;
+  opacity: 0;
   z-index: 20;
+  cursor: col-resize;
+  transition: opacity 0.15s;
+  border-radius: 3px;
 }
-.rte-content .ProseMirror.resize-cursor { cursor: col-resize; }
+
+.rte-content .ProseMirror td:hover > .column-resize-handle,
+.rte-content .ProseMirror th:hover > .column-resize-handle {
+  opacity: 0.5;
+}
+
+.rte-content .ProseMirror .column-resize-handle:hover,
+.rte-content .ProseMirror .column-resize-handle.active {
+  opacity: 1;
+}
+
+.rte-content .ProseMirror.resize-cursor,
+.rte-content .ProseMirror.resize-cursor * { cursor: col-resize !important; }
 .rte-content .tableWrapper { overflow-x: auto; }
 
 /* Placeholder */

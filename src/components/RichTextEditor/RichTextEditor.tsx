@@ -11,7 +11,7 @@ import Underline from '@tiptap/extension-underline'
 import Link from '@tiptap/extension-link'
 import Highlight from '@tiptap/extension-highlight'
 import Placeholder from '@tiptap/extension-placeholder'
-import { TableKit } from '@tiptap/extension-table'
+import { Table, TableRow, TableCell, TableHeader } from '@tiptap/extension-table'
 import { Subscript } from '@tiptap/extension-subscript'
 import { Superscript } from '@tiptap/extension-superscript'
 import { Tooltip, Modal, Input, Form, Tabs, Upload, Button as AntBtn } from 'antd'
@@ -143,7 +143,21 @@ export default function RichTextEditor({ value, onChange, placeholder = 'Escribe
       Link.configure({ openOnClick: false, HTMLAttributes: { rel: 'noopener noreferrer' } }),
       Highlight.configure({ multicolor: true }),
       Placeholder.configure({ placeholder }),
-      TableKit.configure({ resizable: true }),
+      Table.extend({
+        addAttributes() {
+          return {
+            ...this.parent?.(),
+            tableWidth: {
+              default: null,
+              parseHTML: el => el.style.width || null,
+              renderHTML: a => a.tableWidth ? { style: `width: ${a.tableWidth}; max-width: 100%` } : {},
+            },
+          }
+        },
+      }).configure({ resizable: true }),
+      TableRow,
+      TableCell,
+      TableHeader,
       Subscript,
       Superscript,
     ],
@@ -355,6 +369,25 @@ export default function RichTextEditor({ value, onChange, placeholder = 'Escribe
         {/* Toolbar contextual de tabla */}
         {editor.isActive('table') && (
           <>
+            <Sep />
+            {/* Ancho de tabla */}
+            <div className="rte-toolbar-group" style={{ alignItems: 'center', gap: 4 }}>
+              <span style={{ fontSize: 11, color: '#888', whiteSpace: 'nowrap' }}>Ancho:</span>
+              {['25%','50%','75%','100%'].map(w => {
+                const cur = editor.getAttributes('table').tableWidth
+                return (
+                  <button key={w} className={`rte-btn${cur === w ? ' active' : ''}`}
+                    style={{ width: 'auto', padding: '0 5px', fontSize: 11 }}
+                    onMouseDown={e => { e.preventDefault(); editor.chain().focus().updateAttributes('table', { tableWidth: w }).run() }}>
+                    {w}
+                  </button>
+                )
+              })}
+              <button className="rte-btn" style={{ width: 'auto', padding: '0 5px', fontSize: 11 }}
+                onMouseDown={e => { e.preventDefault(); editor.chain().focus().updateAttributes('table', { tableWidth: null }).run() }}>
+                Auto
+              </button>
+            </div>
             <Sep />
             <div className="rte-toolbar-group">
               <Btn title="Insertar fila antes" onClick={() => editor.chain().focus().addRowBefore().run()}>
