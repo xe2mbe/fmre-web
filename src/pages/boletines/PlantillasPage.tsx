@@ -136,6 +136,8 @@ function PlantillaModal({ open, plantilla, onOk, onCancel }: {
   const [form]    = Form.useForm()
   const [loading, setLoading] = useState(false)
   const numPagina = Form.useWatch('num_pagina', form)
+  const encFuente = Form.useWatch('enc_fuente',  form)
+  const pieFuente = Form.useWatch('pie_fuente',  form)
 
   useEffect(() => {
     if (open) {
@@ -148,14 +150,12 @@ function PlantillaModal({ open, plantilla, onOk, onCancel }: {
 
   const handleOk = async () => {
     try {
-      const values = await form.validateFields()
+      await form.validateFields()                // valida los requeridos
+      const values = form.getFieldsValue(true)   // captura TODOS los campos, incluido RTE
       setLoading(true)
       await onOk(values)
     } finally { setLoading(false) }
   }
-
-  // Controladores RTE para enc/pie (fuera del Form)
-  const handleRte = (field: string) => (html: string) => form.setFieldValue(field, html)
 
   const tabItems = [
     {
@@ -196,13 +196,12 @@ function PlantillaModal({ open, plantilla, onOk, onCancel }: {
               <Radio value="primera">Solo primera página</Radio>
             </Radio.Group>
           </Form.Item>
-          <Form.Item label="Contenido del encabezado">
+          {/* name= hace que Ant Design inyecte value/onChange automáticamente */}
+          <Form.Item name="enc_contenido" label="Contenido del encabezado">
             <RichTextEditor
-              value={form.getFieldValue('enc_contenido')}
-              onChange={handleRte('enc_contenido')}
-              placeholder="Texto del encabezado (nombre del club, logo, etc.)"
-              fontFamily={form.getFieldValue('enc_fuente')}
-              minHeight={120}
+              placeholder="Texto del encabezado (nombre del club, logo, imagen, etc.)"
+              fontFamily={encFuente}
+              minHeight={160}
             />
           </Form.Item>
         </>
@@ -227,13 +226,11 @@ function PlantillaModal({ open, plantilla, onOk, onCancel }: {
               <Radio value="primera">Solo primera página</Radio>
             </Radio.Group>
           </Form.Item>
-          <Form.Item label="Contenido del pie de página">
+          <Form.Item name="pie_contenido" label="Contenido del pie de página">
             <RichTextEditor
-              value={form.getFieldValue('pie_contenido')}
-              onChange={handleRte('pie_contenido')}
               placeholder="Texto del pie (dirección, contacto, derechos, etc.)"
-              fontFamily={form.getFieldValue('pie_fuente')}
-              minHeight={120}
+              fontFamily={pieFuente}
+              minHeight={160}
             />
           </Form.Item>
         </>
