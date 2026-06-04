@@ -296,6 +296,12 @@ app.get('/api/auth/me', (req, res) => {
 
 // ── Plantillas ────────────────────────────────────────────────────────────────
 
+app.get('/api/plantillas/:id', (req, res) => {
+  const p = db.prepare('SELECT * FROM plantillas WHERE id = ?').get(req.params.id)
+  if (!p) return res.status(404).json({ detail: 'Plantilla no encontrada' })
+  res.json(p)
+})
+
 app.get('/api/plantillas', (req, res) => {
   const rows = db.prepare(`
     SELECT p.*, COUNT(s.id) AS total_secciones
